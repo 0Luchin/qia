@@ -448,11 +448,104 @@ def ensure_llama_server():
     sys.exit(1)
 
 
+
+
+def wants_command_only(prompt):
+    p = prompt.lower()
+    triggers = (
+        "solo comando",
+        "solo comandos",
+        "sin explicacion",
+        "sin explicación",
+        "comando plano",
+        "comandos planos",
+        "solo el comando",
+        "solo los comandos",
+    )
+    return any(t in p for t in triggers)
+
+
+def clean_command_only_answer(answer):
+    cleaned = []
+
+    for raw in answer.splitlines():
+        line = raw.strip()
+
+        if not line:
+            continue
+
+        # Extraer comando si vino entre backticks
+        m = re.search(r"`([^`]+)`", line)
+        if m:
+            line = m.group(1).strip()
+
+        # Sacar numeración o bullets
+        line = re.sub(r"^\s*\d+[\.\)]\s*", "", line)
+        line = re.sub(r"^\s*[-*]\s*", "", line)
+
+        # Cortar descripciones típicas: comando - descripción
+        if " - " in line:
+            line = line.split(" - ", 1)[0].strip()
+
+        # Evitar frases humanas
+        low = line.lower()
+        if low.startswith(("claro", "aquí", "aca", "estos", "puedes", "podés", "para ")):
+            continue
+
+        if line:
+            cleaned.append(line)
+
+    return "\n".join(cleaned).strip()
+
+
+def harden_system_prompt(system, mode):
+    base = system.strip()
+
+    if mode == "qdo":
+        extra = """
+Reglas finales obligatorias:
+- Devolvé SOLO comandos Bash ejecutables.
+- No uses Markdown.
+- No uses backticks.
+- No expliques.
+- Podés devolver varias líneas si hace falta.
+- No uses comandos destructivos.
+- Si el pedido es monitoreo o diagnóstico, preferí comandos robustos como ps, free, uptime, df, ss, journalctl, dmesg, ip, ping, curl.
+- Si el comando necesita sudo, no lo ejecutes automáticamente salvo que el usuario lo pida.
+- Evitá texto humano fuera del comando.
+"""
+    else:
+        extra = """
+Reglas finales obligatorias:
+- Respuesta técnica corta.
+- Máximo 8 líneas salvo que el usuario pida detalle.
+- Si el usuario pide comandos, devolvé comandos planos.
+- No uses Markdown ni backticks salvo que el usuario pida formato.
+- No des introducciones tipo "Claro" o "Aquí tienes".
+- Priorizá Linux, WSL, Bash, Python, redes e infraestructura.
+"""
+
+    return base + "\n\n" + extra.strip()
+
+
 def ask_ollama(prompt, mode):
     ensure_llama_server()
 
     model = "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
-    system = build_system(mode)
+    system = harden_system_prompt(build_system(mode), mode)
+
+    command_only = wants_command_only(prompt)
+    if command_only:
+        system += """
+Regla extra para este pedido:
+- El usuario pidió solo comando(s).
+- Cada línea debe contener únicamente un comando ejecutable.
+- No numeres.
+- No agregues descripciones.
+- No uses Markdown.
+- No uses backticks.
+"""
+
     start_time = time.perf_counter()
     wait_counter, wait_thread = start_wait_counter(f"llama.cpp {model}")
 
@@ -468,7 +561,7 @@ def ask_ollama(prompt, mode):
                 "content": prompt.strip()
             }
         ],
-        "max_tokens": 256 if mode == "qdo" else 512,
+        "max_tokens": 140 if mode == "qdo" else 160,
         "temperature": 0.1,
         "top_p": 0.8,
         "stream": False
@@ -487,6 +580,8 @@ def ask_ollama(prompt, mode):
             result = json.loads(response.read().decode("utf-8"))
             answer = result.get("choices", [{}])[0].get("message", {}).get("content", "")
             answer = clean_answer(answer)
+            if command_only:
+                answer = clean_command_only_answer(answer)
             elapsed = time.perf_counter() - start_time
             return answer, elapsed
 
