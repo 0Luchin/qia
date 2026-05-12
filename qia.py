@@ -375,7 +375,82 @@ def start_wait_counter(label="Pensando"):
     thread.start()
     return stop_event, thread
 
+def llama_server_ready():
+    try:
+        req = urllib.request.Request(
+            "http://127.0.0.1:8080/v1/models",
+            method="GET"
+        )
+        with urllib.request.urlopen(req, timeout=1.5) as response:
+            return response.status == 200
+    except Exception:
+        return False
+
+
+def start_llama_server():
+    model_path = os.path.expanduser(
+        "~/local-llm/models/qwen2.5-coder-3b/qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+    )
+    server_bin = os.path.expanduser(
+        "~/local-llm/llama.cpp/build/bin/llama-server"
+    )
+
+    if not os.path.exists(server_bin):
+        print(c("Error: no encontré llama-server.", C_RED))
+        print(server_bin)
+        sys.exit(1)
+
+    if not os.path.exists(model_path):
+        print(c("Error: no encontré el modelo GGUF.", C_RED))
+        print(model_path)
+        sys.exit(1)
+
+    log_dir = os.path.expanduser("~/.local/share/qia/logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "llama-server.log")
+
+    log = open(log_path, "a", encoding="utf-8")
+
+    subprocess.Popen(
+        [
+            server_bin,
+            "-m", model_path,
+            "-c", "2048",
+            "-t", str(os.cpu_count() or 4),
+            "--host", "127.0.0.1",
+            "--port", "8080"
+        ],
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True
+    )
+
+
+def ensure_llama_server():
+    if llama_server_ready():
+        return
+
+    print(c("# llama-server no está activo. Iniciando...", C_YELLOW), file=sys.stderr)
+    start = time.perf_counter()
+    start_llama_server()
+
+    while time.perf_counter() - start < 120:
+        if llama_server_ready():
+            elapsed = time.perf_counter() - start
+            print(c(f"# llama-server listo en {elapsed:.2f}s", C_GREEN), file=sys.stderr)
+            return
+        time.sleep(0.5)
+
+    print(c("Error: llama-server no respondió después de 120s.", C_RED))
+    print("Revisá el log:")
+    print("~/.local/share/qia/logs/llama-server.log")
+    sys.exit(1)
+
+
 def ask_ollama(prompt, mode):
+    ensure_llama_server()
+
     model = "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
     system = build_system(mode)
     start_time = time.perf_counter()
@@ -418,14 +493,15 @@ def ask_ollama(prompt, mode):
     except TimeoutError:
         print("", file=sys.stderr)
         print(c("Error: timeout esperando respuesta de llama-server.", C_RED))
-        print("Probá con un pedido más específico o reiniciá llama-server.")
+        print("Probá con un pedido más específico o reiniciá el backend:")
+        print("pkill -f llama-server")
         sys.exit(1)
 
     except urllib.error.URLError:
         print("", file=sys.stderr)
         print(c("Error: llama-server no responde en http://127.0.0.1:8080", C_RED))
-        print("Probá ejecutar:")
-        print("~/local-llm/llama.cpp/build/bin/llama-server -m ~/local-llm/models/qwen2.5-coder-3b/qwen2.5-coder-3b-instruct-q4_k_m.gguf -c 2048 -t \"$(nproc)\" --host 127.0.0.1 --port 8080")
+        print("Probá revisar:")
+        print("~/.local/share/qia/logs/llama-server.log")
         sys.exit(1)
 
     finally:
