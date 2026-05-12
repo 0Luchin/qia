@@ -465,6 +465,25 @@ def wants_command_only(prompt):
     return any(t in p for t in triggers)
 
 
+
+def normalize_qdo_command(cmd):
+    lines = [line.strip() for line in cmd.splitlines() if line.strip()]
+
+    watch_lines = [line for line in lines if line.startswith("watch ")]
+    if len(watch_lines) > 1:
+        useful = []
+        for line in watch_lines:
+            m = re.search(r"['\"](.+?)['\"]", line)
+            if m:
+                useful.append(m.group(1).strip())
+
+        if useful:
+            joined = "; echo; ".join(useful[:5])
+            return f"watch -n 1 'bash -c \"{joined}\"'"
+
+    return cmd.strip()
+
+
 def clean_command_only_answer(answer):
     cleaned = []
 
@@ -511,6 +530,9 @@ Reglas finales obligatorias:
 - Podés devolver varias líneas si hace falta.
 - No uses comandos destructivos.
 - Si el pedido es monitoreo o diagnóstico, preferí comandos robustos como ps, free, uptime, df, ss, journalctl, dmesg, ip, ping, curl.
+- Si el usuario pide monitoreo "en vivo", "tiempo real", "actualizando" o similar, devolvé UN SOLO comando watch que agrupe todo con bash -c.
+- No devuelvas varios watch separados.
+- No devuelvas más de 5 líneas de comandos salvo que el usuario lo pida explícitamente.
 - Si el comando necesita sudo, no lo ejecutes automáticamente salvo que el usuario lo pida.
 - Evitá texto humano fuera del comando.
 """
@@ -582,6 +604,8 @@ Regla extra para este pedido:
             answer = clean_answer(answer)
             if command_only:
                 answer = clean_command_only_answer(answer)
+            if mode == "qdo":
+                answer = normalize_qdo_command(answer)
             elapsed = time.perf_counter() - start_time
             return answer, elapsed
 
@@ -1086,7 +1110,11 @@ def main():
         confirm = input("Ejecutar? [y/N]: ").strip().lower()
 
         if confirm == "y":
-            subprocess.run(cmd, shell=True)
+            try:
+                subprocess.run(cmd, shell=True)
+            except KeyboardInterrupt:
+                print()
+                print("Interrumpido por el usuario.")
         else:
             print(c("Cancelado.", C_YELLOW))
 
