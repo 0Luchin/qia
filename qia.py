@@ -376,24 +376,32 @@ def start_wait_counter(label="Pensando"):
     return stop_event, thread
 
 def ask_ollama(prompt, mode):
-    model = get_model()
+    model = "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
     system = build_system(mode)
     start_time = time.perf_counter()
-    wait_counter, wait_thread = start_wait_counter(f"Ollama {model}")
+    wait_counter, wait_thread = start_wait_counter(f"llama.cpp {model}")
 
     payload = {
         "model": model,
-        "prompt": system + "\n\nPedido del usuario:\n" + prompt.strip(),
-        "stream": False,
-        "options": {
-            "temperature": 0.1,
-            "top_p": 0.8
-        }
+        "messages": [
+            {
+                "role": "system",
+                "content": system
+            },
+            {
+                "role": "user",
+                "content": prompt.strip()
+            }
+        ],
+        "max_tokens": 256 if mode == "qdo" else 512,
+        "temperature": 0.1,
+        "top_p": 0.8,
+        "stream": False
     }
 
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
-        URL,
+        "http://127.0.0.1:8080/v1/chat/completions",
         data=data,
         headers={"Content-Type": "application/json"},
         method="POST"
@@ -402,21 +410,22 @@ def ask_ollama(prompt, mode):
     try:
         with urllib.request.urlopen(req, timeout=120) as response:
             result = json.loads(response.read().decode("utf-8"))
-            answer = clean_answer(result.get("response", ""))
+            answer = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            answer = clean_answer(answer)
             elapsed = time.perf_counter() - start_time
             return answer, elapsed
 
     except TimeoutError:
         print("", file=sys.stderr)
-        print(c("Error: timeout esperando respuesta de Ollama.", C_RED))
-        print("Probá con un pedido más específico o cambiá a un modelo más liviano.")
-        print("Ejemplo: q \"comando find para buscar archivos .log en el directorio actual\"")
+        print(c("Error: timeout esperando respuesta de llama-server.", C_RED))
+        print("Probá con un pedido más específico o reiniciá llama-server.")
         sys.exit(1)
 
     except urllib.error.URLError:
         print("", file=sys.stderr)
-        print(c("Error: Ollama no responde en http://127.0.0.1:11434", C_RED))
-        print("Probá ejecutar: ollama serve")
+        print(c("Error: llama-server no responde en http://127.0.0.1:8080", C_RED))
+        print("Probá ejecutar:")
+        print("~/local-llm/llama.cpp/build/bin/llama-server -m ~/local-llm/models/qwen2.5-coder-3b/qwen2.5-coder-3b-instruct-q4_k_m.gguf -c 2048 -t \"$(nproc)\" --host 127.0.0.1 --port 8080")
         sys.exit(1)
 
     finally:
