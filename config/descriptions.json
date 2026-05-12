@@ -1,0 +1,13 @@
+{
+  "qwen2.5-coder:1.5b": "muy liviano / código simple / Bash básico / más rápido que 3B",
+  "qwen2.5-coder:3b": "uso diario / código liviano / Bash / Python / scripts cortos",
+  "qwen2.5-coder:7b": "mejor calidad para código / más lento / usar con paciencia",
+  "deepseek-coder:1.3b": "muy liviano / pruebas rápidas / código simple",
+  "deepseek-coder:6.7b": "código más fuerte / más pesado / scripts y debugging",
+  "llama3.2:1b": "chat ultra liviano / respuestas rápidas / baja calidad técnica",
+  "llama3.2:3b": "chat general / explicación / resumen / no ideal para código puro",
+  "gemma3:1b": "general muy liviano / estudio básico / respuestas cortas",
+  "gemma3:4b": "modelo general compacto / texto / estudio / explicación",
+  "starcoder2:3b": "código liviano / alternativa coder / probar contra Qwen 3B",
+  "starcoder2:7b": "código más pesado / alternativa coder / puede ser lento"
+}

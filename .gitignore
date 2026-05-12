@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# modelos pesados
+*.gguf
+*.bin
+*.safetensors
+.ollama/
+
+# basura de sistema/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
