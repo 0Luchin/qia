@@ -20,6 +20,7 @@ PROFILE_FILE = CONFIG_DIR / "profile"
 CUSTOM_PROFILE_FILE = CONFIG_DIR / "custom_profile.txt"
 DESC_FILE = CONFIG_DIR / "descriptions.json"
 COLOR_FILE = CONFIG_DIR / "color"
+LOGO_FILE = CONFIG_DIR / "logo"
 
 URL = "http://127.0.0.1:11434/api/generate"
 
@@ -40,6 +41,17 @@ def color_enabled():
 def set_color_state(state):
     ensure_config()
     COLOR_FILE.write_text(state + "\n", encoding="utf-8")
+
+def logo_enabled():
+    ensure_config()
+    try:
+        return LOGO_FILE.read_text(encoding="utf-8").strip() == "on"
+    except Exception:
+        return False
+
+def set_logo_state(state):
+    ensure_config()
+    LOGO_FILE.write_text(state + "\n", encoding="utf-8")
 
 def c(text, color_code):
     if not color_enabled():
@@ -161,6 +173,9 @@ def ensure_config():
 
     if not COLOR_FILE.exists():
         COLOR_FILE.write_text("on\n", encoding="utf-8")
+
+    if not LOGO_FILE.exists():
+        LOGO_FILE.write_text("off\n", encoding="utf-8")
 
 def read_text(path, fallback=""):
     try:
@@ -322,105 +337,49 @@ def extract_command_for_qdo(text):
 
 
 
-def start_wait_counter(label):
-    stop_event = threading.Event()
 
-    logo_lines = [
-        "@@@@@@@@@@@@@@@@@@",
-        "@@@@@@@@@@@@@@@@@@",
-        "@@@@@        @@@@@",
-        "@@@    @@@@    @@@",
-        "@@@   @@@@@@   @@@",
-        "@@@    @@@@    @@@",
-        "@@@@@          @@@",
-        "@@@@@@@@@@@@   @@@",
-        "@@@@@@@@@@@@   @@@",
+
+def draw_qia_wait_panel(elapsed):
+    logo = [
+        "@@@@@@@@@@",
+        "@@@    @@@",
+        "@@  @@  @@",
+        "@@@     @@",
+        "@@@@@@  @@",
     ]
 
-    lime = "\033[38;5;118m"
-    orange = "\033[38;5;215m"
-    white = "\033[97m"
-    gray = "\033[38;5;250m"
-    reset = "\033[0m"
+    reset = "[0m"
+    clear_line = "[2K"
+    yellow = "[93m"
 
-    thinking_colors = [orange, lime, white]
+    # Verde -> naranja en pasos logarítmicos, barato en CPU
+    palette = [118, 154, 190, 214, 215]  # green -> orange-ish
+    # referencia ~60s para llegar cerca del naranja
+    import math
+    progress = min(1.0, math.log1p(elapsed) / math.log1p(60.0))
+    idx = min(len(palette) - 1, int(progress * (len(palette) - 1)))
+    logo_color = f"[38;5;{palette[idx]}m"
 
-    hide_cursor = "\033[?25l"
-    show_cursor = "\033[?25h"
-    clear_line = "\033[2K"
-    clear_down = "\033[J"
+    lines = []
+    for line in logo:
+        lines.append(f"{clear_line}{logo_color}{line}{reset}")
 
-    word = "PENSANDO"
-    positions = list(range(len(word))) + list(range(len(word) - 2, 0, -1))
-    block_lines = len(logo_lines) + 2
+    # siempre alineado a la derecha del logo (ancho 10)
+    timer = f"{elapsed:.2f}s".rjust(10)
+    lines.append(f"{clear_line}{yellow}{timer}{reset}")
 
-    def thinking_word(pos):
-        return "".join(ch.lower() if i == pos else ch for i, ch in enumerate(word))
+    return "\n".join(lines) + "\n"
 
-    def logo_line_with_sparkles(line):
-        # Base verde lima, tintineos puntuales naranja claro.
-        chars = []
-        for ch in line:
-            if ch == "@" and random.random() < 0.10:
-                chars.append(orange + "@" + lime)
-            else:
-                chars.append(ch)
-        return lime + "".join(chars) + reset
 
-    def draw(frame, elapsed):
-        pos = positions[frame % len(positions)]
-        word_color = thinking_colors[frame % len(thinking_colors)]
-
-        current_second = int(elapsed)
-
-        # Segundero:
-        # - al cambiar cada segundo: blanco
-        # - luego fade hacia verde/naranja
-        # - con el paso del tiempo, el color base migra de verde a naranja
-        second_phase = elapsed - current_second
-
-        green_to_orange = [
-            "[38;5;118m",  # verde lima
-            "[38;5;154m",
-            "[38;5;190m",
-            "[38;5;226m",  # amarillo
-            "[38;5;221m",
-            "[38;5;215m",  # naranja claro
-        ]
-
-        # A los 10 segundos ya queda en naranja completo.
-        base_idx = min(int((elapsed / 10.0) * (len(green_to_orange) - 1)), len(green_to_orange) - 1)
-        base_color = green_to_orange[base_idx]
-
-        # Pulso blanco al inicio de cada segundo; después cae al color base.
-        if second_phase < 0.12:
-            time_color = "[97m"
-        elif second_phase < 0.25:
-            time_color = "[38;5;255m"
-        elif second_phase < 0.40:
-            time_color = "[38;5;253m"
-        else:
-            time_color = base_color
-
-        out = []
-
-        for line in logo_lines:
-            out.append(clear_line + logo_line_with_sparkles(line))
-
-        status = (
-            f"{word_color}[{thinking_word(pos)}]{reset} "
-            f"- "
-            f"{time_color}{elapsed:04.1f}s{reset}"
-        )
-
-        out.append(clear_line)
-        out.append(clear_line + status)
-
-        return "\n".join(out) + "\n"
+def start_wait_counter(label):
+    stop_event = threading.Event()
+    hide_cursor = "[?25l"
+    show_cursor = "[?25h"
+    clear_down = "[J"
+    block_lines = 6
 
     def run():
         start_time = time.perf_counter()
-        frame = 0
         first_draw = True
 
         sys.stderr.write(hide_cursor)
@@ -430,38 +389,62 @@ def start_wait_counter(label):
                 elapsed = time.perf_counter() - start_time
 
                 if not first_draw:
-                    sys.stderr.write(f"\033[{block_lines}F")
+                    sys.stderr.write(f"[{block_lines}F")
 
-                sys.stderr.write(draw(frame, elapsed))
+                sys.stderr.write(draw_qia_wait_panel(elapsed))
                 sys.stderr.flush()
 
                 first_draw = False
-                frame += 1
-
-                # ~10 FPS con variación leve para no gastar CPU.
-                if random.random() < 0.10:
-                    delay = random.uniform(0.060, 0.080)
-                elif random.random() < 0.12:
-                    delay = random.uniform(0.140, 0.200)
-                else:
-                    delay = random.uniform(0.090, 0.120)
-
-                time.sleep(delay)
+                time.sleep(0.12)  # liviano
 
         finally:
-            elapsed = time.perf_counter() - start_time
-
             if not first_draw:
-                sys.stderr.write(f"\033[{block_lines}F")
+                sys.stderr.write(f"[{block_lines}F")
                 sys.stderr.write(clear_down)
 
             sys.stderr.write(show_cursor)
-            sys.stderr.write(f"[PENSANDO] listo en {elapsed:.2f}s\n")
             sys.stderr.flush()
 
     thread = threading.Thread(target=run, daemon=True)
     thread.start()
     return stop_event, thread
+
+
+def wait_llama_server_panel(start_time):
+    hide_cursor = "[?25l"
+    show_cursor = "[?25h"
+    clear_down = "[J"
+    block_lines = 6
+    first_draw = True
+
+    sys.stderr.write(hide_cursor)
+
+    try:
+        while time.perf_counter() - start_time < 120:
+            elapsed = time.perf_counter() - start_time
+
+            if not first_draw:
+                sys.stderr.write(f"[{block_lines}F")
+
+            sys.stderr.write(draw_qia_wait_panel(elapsed))
+            sys.stderr.flush()
+
+            if llama_server_ready():
+                if not first_draw:
+                    sys.stderr.write(f"[{block_lines}F")
+                    sys.stderr.write(clear_down)
+                sys.stderr.write(show_cursor)
+                sys.stderr.flush()
+                return True
+
+            first_draw = False
+            time.sleep(0.12)
+
+    finally:
+        sys.stderr.write(show_cursor)
+        sys.stderr.flush()
+
+    return False
 
 
 def llama_server_ready():
@@ -504,7 +487,7 @@ def start_llama_server():
         [
             server_bin,
             "-m", model_path,
-            "-c", "2048",
+            "-c", "1024",
             "-t", str(os.cpu_count() or 4),
             "--host", "127.0.0.1",
             "--port", "8080"
@@ -520,22 +503,28 @@ def ensure_llama_server():
     if llama_server_ready():
         return
 
-    print(c("# llama-server no está activo. Iniciando...", C_YELLOW), file=sys.stderr)
     start = time.perf_counter()
+
+    if not logo_enabled():
+        print(c("# llama-server no está activo. Iniciando...", C_YELLOW), file=sys.stderr)
+
     start_llama_server()
 
-    while time.perf_counter() - start < 120:
-        if llama_server_ready():
-            elapsed = time.perf_counter() - start
-            print(c(f"# llama-server listo en {elapsed:.2f}s", C_GREEN), file=sys.stderr)
+    if logo_enabled():
+        if wait_llama_server_panel(start):
             return
-        time.sleep(0.5)
+    else:
+        while time.perf_counter() - start < 120:
+            if llama_server_ready():
+                elapsed = time.perf_counter() - start
+                print(c(f"# llama-server listo en {elapsed:.2f}s", C_GREEN), file=sys.stderr)
+                return
+            time.sleep(0.5)
 
     print(c("Error: llama-server no respondió después de 120s.", C_RED))
     print("Revisá el log:")
     print("~/.local/share/qia/logs/llama-server.log")
     sys.exit(1)
-
 
 
 
@@ -554,23 +543,6 @@ def wants_command_only(prompt):
     return any(t in p for t in triggers)
 
 
-
-def normalize_qdo_command(cmd):
-    lines = [line.strip() for line in cmd.splitlines() if line.strip()]
-
-    watch_lines = [line for line in lines if line.startswith("watch ")]
-    if len(watch_lines) > 1:
-        useful = []
-        for line in watch_lines:
-            m = re.search(r"['\"](.+?)['\"]", line)
-            if m:
-                useful.append(m.group(1).strip())
-
-        if useful:
-            joined = "; echo; ".join(useful[:5])
-            return f"watch -n 1 'bash -c \"{joined}\"'"
-
-    return cmd.strip()
 
 
 def clean_command_only_answer(answer):
@@ -607,116 +579,283 @@ def clean_command_only_answer(answer):
 
 
 def harden_system_prompt(system, mode):
-    base = system.strip()
-
     if mode == "qdo":
-        extra = """
-Reglas finales obligatorias:
-- Devolvé SOLO comandos Bash ejecutables.
-- No uses Markdown.
-- No uses backticks.
+        return """
+Sos qdo, un generador de comandos para Bash/Linux/WSL.
+
+Reglas obligatorias:
+- Devolvé SOLO comandos ejecutables.
 - No expliques.
-- Podés devolver varias líneas si hace falta.
-- No uses comandos destructivos.
-- Si el pedido es monitoreo o diagnóstico normal, devolvé comandos de una sola ejecución como ps, free, uptime, df, ss, journalctl, dmesg, ip, ping, curl.
-- Usá watch SOLO si el usuario pide explícitamente "en vivo", "tiempo real", "actualizando", "refrescando" o "watch".
-- No devuelvas varios watch separados.
-- No devuelvas más de 5 líneas de comandos salvo que el usuario lo pida explícitamente.
-- Si el comando necesita sudo, no lo ejecutes automáticamente salvo que el usuario lo pida.
-- Evitá texto humano fuera del comando.
-"""
-    elif mode == "qcode":
-        extra = """
-Reglas finales obligatorias:
-- Devolvé código completo y usable.
-- No cortes el código a mitad.
 - No uses Markdown.
 - No uses backticks.
-- No agregues explicación salvo que el usuario la pida.
-- Si falta información, asumí una solución simple y funcional.
-- Priorizá Python, Bash, Linux, WSL, redes e infraestructura.
+- No escribas introducciones.
+- No inventes nombres de distros WSL.
+- No asumas herramientas poco estándar si hay alternativas comunes.
+- Preferí herramientas comunes: ip, ss, ps, free, df, du, find, grep, awk, sed, journalctl, dmesg, ping, curl, wget, cat, tail, head.
+- Si necesitás varios pasos de diagnóstico, devolvé un comando por línea.
+- Cada línea debe ser ejecutable por separado.
+- Si el usuario pide CPU, RAM, memoria, recursos, consumo o procesos, incluí comandos que cubran CPU, RAM y procesos; no devuelvas solamente ps.
+- Para CPU preferí: top -bn1 | grep "Cpu(s)"
+- Para RAM preferí: free -h
+- Para procesos preferí: ps aux --sort=-%cpu | head -n 6
+- Si una sola línea alcanza, devolvé una sola línea.
+- Si necesitás encadenar comandos dependientes, usá &&.
+- Si necesitás agrupar comandos independientes en una línea, usá { comando; comando; }.
+- No uses comandos destructivos como rm -rf, dd, mkfs, shutdown, reboot, chmod -R o chown -R.
+- Si el pedido requiere un script largo, devolvé: usar qcode.
+- Si falta información, devolvé un comando seguro de inspección.
 """
-    else:
-        extra = """
-Reglas finales obligatorias:
-- Respuesta técnica corta.
-- Máximo 8 líneas salvo que el usuario pida detalle.
+
+    if mode == "qcode":
+        return """
+Sos qcode, un generador de código y scripts completos.
+
+Reglas obligatorias:
+- Devolvé SOLO código completo y ejecutable.
+- No uses Markdown.
+- No uses backticks.
+- No expliques salvo que el usuario lo pida.
+- No escribas introducciones.
+- No cortes el código a mitad.
+- Si el usuario pide un programa, incluí imports, funciones, main y if __name__ == "__main__".
+- Si es Python, debe poder guardarse y ejecutarse con python3 archivo.py.
+- Si es Bash, incluí shebang cuando corresponda.
+- Priorizá código compacto, claro y funcional.
+"""
+
+    return """
+Sos q, un asistente técnico local para Linux, WSL, Bash, Python, redes e infraestructura.
+
+Reglas obligatorias:
+- Respondé corto y directo.
+- No ejecutes acciones.
+- No uses Markdown salvo que el usuario lo pida.
+- No uses backticks salvo que el usuario lo pida.
 - Si el usuario pide comandos, devolvé comandos planos.
-- No uses Markdown ni backticks salvo que el usuario pida formato.
-- No des introducciones tipo "Claro" o "Aquí tienes".
-- Priorizá Linux, WSL, Bash, Python, redes e infraestructura.
+- Si el pedido es complejo o peligroso, explicá brevemente cómo encararlo.
+- No inventes herramientas instaladas.
+- Si falta información, decí qué verificar.
+- Máximo 10 líneas salvo que el usuario pida detalle.
 """
 
-    return base + "\n\n" + extra.strip()
 
+def clean_qcode_answer(answer):
+    lines = answer.rstrip().splitlines()
+    cut_markers = (
+        "este programa",
+        "explicación",
+        "explicacion",
+        "nota:",
+        "observación:",
+        "observacion:",
+        "puedes guardarlo",
+        "para ejecutarlo",
+    )
+
+    cleaned = []
+
+    for line in lines:
+        low = line.strip().lower()
+
+        if any(low.startswith(marker) for marker in cut_markers):
+            break
+
+        if low.startswith("aquí tienes") or low.startswith("aqui tienes") or low.startswith("claro"):
+            continue
+
+        cleaned.append(line)
+
+    return "\n".join(cleaned).strip()
+
+
+def shell_syntax_ok(cmd):
+    try:
+        result = subprocess.run(
+            ["bash", "-n"],
+            input=cmd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=3
+        )
+        return result.returncode == 0, result.stderr.strip()
+    except Exception as e:
+        return False, str(e)
+
+
+def split_qdo_commands(cmd):
+    raw = cmd.strip()
+
+    if not raw:
+        return []
+
+    heredoc_markers = ("<<EOF", "<<'EOF'", '<<"EOF"', "<<-EOF")
+    if any(m in raw for m in heredoc_markers):
+        return [raw]
+
+    lines = []
+
+    for raw_line in raw.splitlines():
+        line = raw_line.strip()
+
+        if not line:
+            continue
+
+        if line.startswith("#"):
+            continue
+
+        # Extraer comandos que vinieron entre backticks
+        m = re.search(r"`([^`]+)`", line)
+        if m:
+            line = m.group(1).strip()
+
+        # Sacar bullets/numeración/prompts
+        line = re.sub(r"^\s*\d+[\.\)]\s*", "", line)
+        line = re.sub(r"^\s*[-*]\s*", "", line)
+        line = re.sub(r"^\$+\s*", "", line)
+        line = re.sub(r"^>\s*", "", line)
+
+        # Cortar descripciones tipo: comando - explicación
+        if " - " in line:
+            before, after = line.split(" - ", 1)
+            if before.strip():
+                line = before.strip()
+
+        low = line.lower()
+        if low.startswith((
+            "comando",
+            "comandos",
+            "paso",
+            "nota",
+            "explicación",
+            "explicacion",
+            "aquí",
+            "aqui",
+            "claro",
+            "puedes",
+            "podés",
+            "para ",
+        )):
+            continue
+
+        if line:
+            lines.append(line)
+
+    return lines
+
+
+def normalize_qdo_command(cmd):
+    commands = split_qdo_commands(cmd)
+
+    if not commands:
+        return cmd.strip()
+
+    # Si hay un solo comando, devolverlo limpio.
+    if len(commands) == 1:
+        return commands[0]
+
+    # Si hay varios watch, fusionarlos para que no bloquee el primero.
+    watch_lines = [c for c in commands if c.startswith("watch ")]
+    if len(watch_lines) > 1:
+        inner = []
+        for line in watch_lines:
+            m = re.search(r"['\"](.+?)['\"]", line)
+            inner.append(m.group(1).strip() if m else line.replace("watch", "", 1).strip())
+
+        joined = "; echo; ".join(inner[:6])
+        joined = joined.replace('"', '\\"')
+        return f'watch -n 1 "bash -lc \\"{joined}\\""'
+
+    # Si son varios comandos distintos, conservarlos como pasos.
+    return "\n".join(commands)
+
+
+def run_qdo_commands(cmd):
+    commands = split_qdo_commands(cmd)
+
+    if not commands:
+        print("No hay comandos ejecutables.")
+        return
+
+    if len(commands) == 1:
+        ok_syntax, syntax_error = shell_syntax_ok(commands[0])
+        if not ok_syntax:
+            print("Bloqueado: el comando tiene error de sintaxis.")
+            if syntax_error:
+                print(syntax_error)
+            return
+
+        try:
+            subprocess.run(commands[0], shell=True)
+        except KeyboardInterrupt:
+            print()
+            print("Interrumpido por el usuario.")
+        return
+
+    print()
+    print(f"Se detectaron {len(commands)} comandos. Se ejecutarán uno por uno.")
+    print()
+
+    for idx, command in enumerate(commands, start=1):
+        print(f"\033[93m[{idx}/{len(commands)}] $ {command}\033[0m")
+
+        ok_syntax, syntax_error = shell_syntax_ok(command)
+        if not ok_syntax:
+            print("Bloqueado: este comando tiene error de sintaxis.")
+            if syntax_error:
+                print(syntax_error)
+            break
+
+        try:
+            result = subprocess.run(command, shell=True)
+        except KeyboardInterrupt:
+            print()
+            print("Interrumpido por el usuario.")
+            break
+
+        if result.returncode != 0:
+            print()
+            print(f"El comando terminó con código {result.returncode}.")
+            answer = input("¿Continuar con el siguiente? [y/N]: ").strip().lower()
+            if answer != "y":
+                print("Ejecución detenida.")
+                break
+
+        if idx < len(commands):
+            time.sleep(0.5)
+            print()
 
 def ask_ollama(prompt, mode):
-    invoked_name = Path(sys.argv[0]).name
-    if invoked_name == "qcode":
+    invoked_name = os.environ.get("QIA_INVOKED_AS") or Path(sys.argv[0]).name
+
+    if invoked_name == "qdo":
+        mode = "qdo"
+    elif invoked_name == "qcode":
         mode = "qcode"
+    else:
+        mode = "q"
 
     ensure_llama_server()
 
-    model = "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
-    system = harden_system_prompt(build_system(mode), mode)
+    wait_counter = None
+    wait_thread = None
 
-    if mode == "qdo":
-        p = prompt.lower()
-        live_words = ("en vivo", "tiempo real", "actualizando", "refrescando", "watch")
-        if not any(w in p for w in live_words):
-            system += """
-Regla extra:
-- El usuario NO pidió monitoreo en vivo.
-- No uses watch.
-- No uses comandos interactivos como top sin -b.
-- Devolvé comandos que terminen solos.
-"""
-
-
-    if mode == "qcode":
-        system = """
-Sos un generador de código.
-Devolvé SOLO código completo y ejecutable.
-No uses Markdown.
-No uses backticks.
-No expliques.
-No escribas introducciones.
-No escribas frases como "Aquí tienes".
-No cortes el código a mitad.
-Si el usuario pide un programa, incluí imports, funciones, main y if __name__ == "__main__".
-El resultado debe poder copiarse directo a un archivo y ejecutarse.
-"""
-
-    command_only = wants_command_only(prompt)
-    if command_only:
-        system += """
-Regla extra para este pedido:
-- El usuario pidió solo comando(s).
-- Cada línea debe contener únicamente un comando ejecutable.
-- No numeres.
-- No agregues descripciones.
-- No uses Markdown.
-- No uses backticks.
-"""
-
-    if mode == "qcode":
-        system += """
-Regla extra para qcode:
-- Devolvé código completo.
-- No cortes el código a mitad.
-- No uses Markdown.
-- No uses backticks.
-- No expliques.
-- Si el usuario pide un programa, incluí imports, funciones, main y if __name__ == "__main__".
-- Priorizá que el resultado pueda copiarse a un archivo y ejecutarse.
-"""
-
-
+    system = harden_system_prompt("", mode)
     start_time = time.perf_counter()
-    wait_counter, wait_thread = start_wait_counter(f"llama.cpp {model}")
+    if logo_enabled():
+        wait_counter, wait_thread = start_wait_counter(f"qia {mode}")
+    if mode == "qdo":
+        max_tokens = 120
+        temperature = 0.02
+    elif mode == "qcode":
+        max_tokens = 1000
+        temperature = 0.04
+    else:
+        max_tokens = 80
+        temperature = 0.03
 
     payload = {
-        "model": model,
+        "model": "qwen2.5-coder-3b-instruct-q4_k_m.gguf",
         "messages": [
             {
                 "role": "system",
@@ -727,22 +866,12 @@ Regla extra para qcode:
                 "content": prompt.strip()
             }
         ],
-        "max_tokens": 140 if mode == "qdo" else 2200 if mode == "qcode" else 220,
-        "temperature": 0.1,
+        "max_tokens": max_tokens,
+        "n_predict": max_tokens,
+        "temperature": temperature,
         "top_p": 0.8,
         "stream": False
     }
-
-    if mode == "qcode":
-        payload["max_tokens"] = 2200
-        payload["n_predict"] = 2200
-        payload["temperature"] = 0.05
-    elif mode == "qdo":
-        payload["max_tokens"] = 160
-        payload["n_predict"] = 160
-    else:
-        payload["max_tokens"] = 220
-        payload["n_predict"] = 220
 
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -753,36 +882,39 @@ Regla extra para qcode:
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=300) as response:
+        with urllib.request.urlopen(req, timeout=300 if mode == "qcode" else 120) as response:
             result = json.loads(response.read().decode("utf-8"))
             answer = result.get("choices", [{}])[0].get("message", {}).get("content", "")
             answer = clean_answer(answer)
-            if command_only:
-                answer = clean_command_only_answer(answer)
+
+            if mode == "qcode":
+                answer = clean_qcode_answer(answer)
+
             if mode == "qdo":
                 answer = normalize_qdo_command(answer)
+
+            if mode == "q" and wants_command_only(prompt):
+                answer = clean_command_only_answer(answer)
+
             elapsed = time.perf_counter() - start_time
             return answer, elapsed
 
     except TimeoutError:
         print("", file=sys.stderr)
         print(c("Error: timeout esperando respuesta de llama-server.", C_RED))
-        print("Probá con un pedido más específico o reiniciá el backend:")
-        print("pkill -f llama-server")
         sys.exit(1)
 
     except urllib.error.URLError:
         print("", file=sys.stderr)
         print(c("Error: llama-server no responde en http://127.0.0.1:8080", C_RED))
-        print("Probá revisar:")
-        print("~/.local/share/qia/logs/llama-server.log")
+        print("Probá revisar qia status o qia doctor.")
         sys.exit(1)
 
     finally:
-        wait_counter.set()
-        wait_thread.join(timeout=1.0)
-
-
+        if wait_counter is not None:
+            wait_counter.set()
+        if wait_thread is not None:
+            wait_thread.join(timeout=1.0)
 def safe_clipboard_text(text):
     text = text.strip()
 
@@ -1110,6 +1242,27 @@ def handle_qcolor(args):
     sys.exit(1)
 
 
+def handle_qlogo(args):
+    ensure_config()
+    if not args or args[0].lower() == "status":
+        print("qlogo:", "on" if logo_enabled() else "off")
+        return
+    cmd = args[0].lower()
+    if cmd == "on":
+        set_logo_state("on")
+        print("qlogo: on")
+        return
+    if cmd == "off":
+        set_logo_state("off")
+        print("qlogo: off")
+        return
+    if cmd == "toggle":
+        set_logo_state("off" if logo_enabled() else "on")
+        print("qlogo:", "on" if logo_enabled() else "off")
+        return
+    print("Uso: qlogo [on|off|toggle|status]")
+    sys.exit(1)
+
 def usage():
     print("""Uso:
   q "pedido"                       Genera respuesta/comando y copia al portapapeles
@@ -1254,26 +1407,130 @@ def qia_logo():
     print()
 
 
+
+def qia_status_animation():
+    print("Animación activa. Enter para salir.")
+    stop_event, thread = start_wait_counter("qia status")
+    try:
+        input()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        stop_event.set()
+        thread.join(timeout=1.0)
+
 def qia_status():
-    qia_logo()
-    print("qia status")
-    print()
+    logo = [
+        "@@@@@@@@@@@@@@@@@@",
+        "@@@@@@@@@@@@@@@@@@",
+        "@@@@@        @@@@@",
+        "@@@    @@@@    @@@",
+        "@@@   @@@@@@   @@@",
+        "@@@    @@@@    @@@",
+        "@@@@@          @@@",
+        "@@@@@@@@@@@@   @@@",
+        "@@@@@@@@@@@@   @@@",
+    ]
 
-    if llama_server_ready():
-        print("backend: llama-server activo")
-        print("url: http://127.0.0.1:8080")
-    else:
-        print("backend: llama-server detenido")
+    server_bin = os.path.expanduser("~/local-llm/llama.cpp/build/bin/llama-server")
+    model_path = os.path.expanduser("~/local-llm/models/qwen2.5-coder-3b/qwen2.5-coder-3b-instruct-q4_k_m.gguf")
 
-    model_path = os.path.expanduser(
-        "~/local-llm/models/qwen2.5-coder-3b/qwen2.5-coder-3b-instruct-q4_k_m.gguf"
-    )
-    server_bin = os.path.expanduser(
-        "~/local-llm/llama.cpp/build/bin/llama-server"
-    )
+    server_ok = os.path.exists(server_bin)
+    model_ok = os.path.exists(model_path)
+    active = llama_server_ready()
 
-    print(f"llama-server: {'OK' if os.path.exists(server_bin) else 'NO ENCONTRADO'}")
-    print(f"modelo GGUF: {'OK' if os.path.exists(model_path) else 'NO ENCONTRADO'}")
+    right_lines = [
+        "# STATUS:",
+        "",
+        f"backend: llama-server {'activo' if active else 'detenido'}",
+        "url: http://127.0.0.1:8080",
+        "",
+        f"llama-server: {'OK' if server_ok else 'NO ENCONTRADO'}",
+        f"modelo GGUF: {'OK' if model_ok else 'NO ENCONTRADO'}",
+        "",
+        "# Para fix utiliza qia doctor",
+    ]
+
+    lime = "[38;5;118m"
+    orange = "[38;5;215m"
+    white = "[97m"
+    yellow = "[93m"
+    gray = "[38;5;250m"
+    reset = "[0m"
+    hide_cursor = "[?25l"
+    show_cursor = "[?25h"
+    clear_line = "[2K"
+
+    stop_event = threading.Event()
+
+    def wait_enter():
+        try:
+            input()
+        except Exception:
+            pass
+        stop_event.set()
+
+    threading.Thread(target=wait_enter, daemon=True).start()
+
+    def render_logo_line(line, frame, row):
+        out = []
+        for ch in line:
+            if ch != "@":
+                out.append(ch)
+                continue
+
+            if random.random() < 0.12:
+                out.append(orange + "@" + lime)
+            else:
+                out.append("@")
+
+        return lime + "".join(out) + reset
+
+    def larlab_wave(frame):
+        base = "[ www.LARLAB.xyz ]"
+        chars = []
+        phase = frame % 12
+        for i, ch in enumerate(base):
+            if ch.isalpha():
+                chars.append(ch.upper() if ((i + phase) % 6) < 3 else ch.lower())
+            else:
+                chars.append(ch)
+        return "".join(chars)
+
+    total_lines = len(logo) + 2
+    frame = 0
+    first = True
+
+    sys.stdout.write(hide_cursor)
+
+    try:
+        while not stop_event.is_set():
+            if not first:
+                sys.stdout.write(f"[{total_lines}F")
+
+            lines = []
+
+            for i, left in enumerate(logo):
+                right = right_lines[i] if i < len(right_lines) else ""
+                left_render = render_logo_line(left, frame, i)
+                lines.append(f"{clear_line}{left_render}  {white}{right}{reset}")
+
+            lines.append(clear_line)
+            cursor = "_" if frame % 8 < 4 else " "
+            lines.append(f"{clear_line}{gray}{larlab_wave(frame)}{reset}  {yellow}Enter para salir {cursor}{reset}")
+
+            sys.stdout.write("\n".join(lines) + "\n")
+            sys.stdout.flush()
+
+            first = False
+            frame += 1
+            time.sleep(0.10)
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        sys.stdout.write(show_cursor)
+        sys.stdout.flush()
 
 
 def qia_stop():
@@ -1314,7 +1571,7 @@ def qia_doctor():
 
 
 def main():
-    invoked = Path(sys.argv[0]).name
+    invoked = os.environ.get("QIA_INVOKED_AS") or Path(sys.argv[0]).name
 
     if invoked in ("qia.py", "qia") and len(sys.argv) >= 2:
         cmd = sys.argv[1].strip().lower()
@@ -1340,7 +1597,7 @@ def main():
             print("  qia doctor")
             return
 
-    invoked_as = os.path.basename(sys.argv[0])
+    invoked_as = os.environ.get("QIA_INVOKED_AS") or os.path.basename(sys.argv[0])
 
     if invoked_as == "qmodel":
         handle_qmodel(sys.argv[1:])
@@ -1354,6 +1611,10 @@ def main():
         handle_qcolor(sys.argv[1:])
         return
 
+    if invoked_as == "qlogo":
+        handle_qlogo(sys.argv[1:])
+        return
+
     if len(sys.argv) < 2:
         usage()
         sys.exit(1)
@@ -1364,7 +1625,7 @@ def main():
         cmd, elapsed = ask_ollama(prompt, "qdo")
         cmd = extract_command_for_qdo(cmd)
 
-        print("\n" + c("Comando propuesto:", C_BLUE) + "\n")
+        print("\n" + "\033[93mComando propuesto:\033[0m" + "\n")
         print(c(cmd, C_CYAN))
         print(f"\n{c(f'# Tiempo: {elapsed:.2f}s', C_GRAY)}\n")
 
@@ -1377,7 +1638,7 @@ def main():
 
         if confirm == "y":
             try:
-                subprocess.run(cmd, shell=True)
+                run_qdo_commands(cmd)
             except KeyboardInterrupt:
                 print()
                 print("Interrumpido por el usuario.")
