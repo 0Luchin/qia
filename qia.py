@@ -504,7 +504,7 @@ def start_llama_server():
         [
             server_bin,
             "-m", model_path,
-            "-c", "4096",
+            "-c", "2048",
             "-t", str(os.cpu_count() or 4),
             "--host", "127.0.0.1",
             "--port", "8080"
@@ -618,8 +618,8 @@ Reglas finales obligatorias:
 - No expliques.
 - Podés devolver varias líneas si hace falta.
 - No uses comandos destructivos.
-- Si el pedido es monitoreo o diagnóstico, preferí comandos robustos como ps, free, uptime, df, ss, journalctl, dmesg, ip, ping, curl.
-- Si el usuario pide monitoreo "en vivo", "tiempo real", "actualizando" o similar, devolvé UN SOLO comando watch que agrupe todo con bash -c.
+- Si el pedido es monitoreo o diagnóstico normal, devolvé comandos de una sola ejecución como ps, free, uptime, df, ss, journalctl, dmesg, ip, ping, curl.
+- Usá watch SOLO si el usuario pide explícitamente "en vivo", "tiempo real", "actualizando", "refrescando" o "watch".
 - No devuelvas varios watch separados.
 - No devuelvas más de 5 líneas de comandos salvo que el usuario lo pida explícitamente.
 - Si el comando necesita sudo, no lo ejecutes automáticamente salvo que el usuario lo pida.
@@ -659,6 +659,19 @@ def ask_ollama(prompt, mode):
 
     model = "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
     system = harden_system_prompt(build_system(mode), mode)
+
+    if mode == "qdo":
+        p = prompt.lower()
+        live_words = ("en vivo", "tiempo real", "actualizando", "refrescando", "watch")
+        if not any(w in p for w in live_words):
+            system += """
+Regla extra:
+- El usuario NO pidió monitoreo en vivo.
+- No uses watch.
+- No uses comandos interactivos como top sin -b.
+- Devolvé comandos que terminen solos.
+"""
+
 
     if mode == "qcode":
         system = """
@@ -721,8 +734,8 @@ Regla extra para qcode:
     }
 
     if mode == "qcode":
-        payload["max_tokens"] = 4096
-        payload["n_predict"] = 4096
+        payload["max_tokens"] = 2200
+        payload["n_predict"] = 2200
         payload["temperature"] = 0.05
     elif mode == "qdo":
         payload["max_tokens"] = 160
