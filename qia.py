@@ -6,6 +6,7 @@ import subprocess
 import sys
 import threading
 import time
+import random
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -317,63 +318,151 @@ def extract_command_for_qdo(text):
 
     return text.strip()
 
-def start_wait_counter(label="Pensando"):
+
+
+
+
+def start_wait_counter(label):
     stop_event = threading.Event()
 
-    def worker():
-        start = time.perf_counter()
-        word = "PENSANDO"
+    logo_lines = [
+        "@@@@@@@@@@@@@@@@@@",
+        "@@@@@@@@@@@@@@@@@@",
+        "@@@@@        @@@@@",
+        "@@@    @@@@    @@@",
+        "@@@   @@@@@@   @@@",
+        "@@@    @@@@    @@@",
+        "@@@@@          @@@",
+        "@@@@@@@@@@@@   @@@",
+        "@@@@@@@@@@@@   @@@",
+    ]
 
-        colors = [
-            "\033[35m",
-            "\033[36m",
-            "\033[95m",
-            "\033[96m",
-            "\033[34m",
-            "\033[33m",
-            "\033[32m",
-            "\033[31m",
+    lime = "\033[38;5;118m"
+    orange = "\033[38;5;215m"
+    white = "\033[97m"
+    gray = "\033[38;5;250m"
+    reset = "\033[0m"
+
+    thinking_colors = [orange, lime, white]
+
+    hide_cursor = "\033[?25l"
+    show_cursor = "\033[?25h"
+    clear_line = "\033[2K"
+    clear_down = "\033[J"
+
+    word = "PENSANDO"
+    positions = list(range(len(word))) + list(range(len(word) - 2, 0, -1))
+    block_lines = len(logo_lines) + 2
+
+    def thinking_word(pos):
+        return "".join(ch.lower() if i == pos else ch for i, ch in enumerate(word))
+
+    def logo_line_with_sparkles(line):
+        # Base verde lima, tintineos puntuales naranja claro.
+        chars = []
+        for ch in line:
+            if ch == "@" and random.random() < 0.10:
+                chars.append(orange + "@" + lime)
+            else:
+                chars.append(ch)
+        return lime + "".join(chars) + reset
+
+    def draw(frame, elapsed):
+        pos = positions[frame % len(positions)]
+        word_color = thinking_colors[frame % len(thinking_colors)]
+
+        current_second = int(elapsed)
+
+        # Segundero:
+        # - al cambiar cada segundo: blanco
+        # - luego fade hacia verde/naranja
+        # - con el paso del tiempo, el color base migra de verde a naranja
+        second_phase = elapsed - current_second
+
+        green_to_orange = [
+            "[38;5;118m",  # verde lima
+            "[38;5;154m",
+            "[38;5;190m",
+            "[38;5;226m",  # amarillo
+            "[38;5;221m",
+            "[38;5;215m",  # naranja claro
         ]
 
-        positions = list(range(len(word))) + list(range(len(word) - 2, 0, -1))
-        i = 0
+        # A los 10 segundos ya queda en naranja completo.
+        base_idx = min(int((elapsed / 10.0) * (len(green_to_orange) - 1)), len(green_to_orange) - 1)
+        base_color = green_to_orange[base_idx]
 
-        while not stop_event.is_set():
-            elapsed = time.perf_counter() - start
-            pos = positions[i % len(positions)]
-
-            chars = []
-            for idx, ch in enumerate(word):
-                chars.append(ch.lower() if idx == pos else ch)
-
-            animated_word = "".join(chars)
-
-            col1 = colors[i % len(colors)]
-            col2 = colors[(i + 3) % len(colors)]
-
-            if color_enabled():
-                msg = f"\r{col1}[{animated_word}]{C_RESET} {col2}{elapsed:.1f}s{C_RESET}"
-            else:
-                msg = f"\r[{animated_word}] {elapsed:.1f}s"
-
-            print(msg, end="", file=sys.stderr, flush=True)
-
-            i += 1
-            time.sleep(0.18)
-
-        elapsed = time.perf_counter() - start
-
-        if color_enabled():
-            msg = f"\r{C_GREEN}[PENSANDO] listo en {elapsed:.2f}s{C_RESET}          "
+        # Pulso blanco al inicio de cada segundo; después cae al color base.
+        if second_phase < 0.12:
+            time_color = "[97m"
+        elif second_phase < 0.25:
+            time_color = "[38;5;255m"
+        elif second_phase < 0.40:
+            time_color = "[38;5;253m"
         else:
-            msg = f"\r[PENSANDO] listo en {elapsed:.2f}s          "
+            time_color = base_color
 
-        print(msg, file=sys.stderr, flush=True)
-        print("", file=sys.stderr, flush=True)
+        out = []
 
-    thread = threading.Thread(target=worker, daemon=True)
+        for line in logo_lines:
+            out.append(clear_line + logo_line_with_sparkles(line))
+
+        status = (
+            f"{word_color}[{thinking_word(pos)}]{reset} "
+            f"- "
+            f"{time_color}{elapsed:04.1f}s{reset}"
+        )
+
+        out.append(clear_line)
+        out.append(clear_line + status)
+
+        return "\n".join(out) + "\n"
+
+    def run():
+        start_time = time.perf_counter()
+        frame = 0
+        first_draw = True
+
+        sys.stderr.write(hide_cursor)
+
+        try:
+            while not stop_event.is_set():
+                elapsed = time.perf_counter() - start_time
+
+                if not first_draw:
+                    sys.stderr.write(f"\033[{block_lines}F")
+
+                sys.stderr.write(draw(frame, elapsed))
+                sys.stderr.flush()
+
+                first_draw = False
+                frame += 1
+
+                # ~10 FPS con variación leve para no gastar CPU.
+                if random.random() < 0.10:
+                    delay = random.uniform(0.060, 0.080)
+                elif random.random() < 0.12:
+                    delay = random.uniform(0.140, 0.200)
+                else:
+                    delay = random.uniform(0.090, 0.120)
+
+                time.sleep(delay)
+
+        finally:
+            elapsed = time.perf_counter() - start_time
+
+            if not first_draw:
+                sys.stderr.write(f"\033[{block_lines}F")
+                sys.stderr.write(clear_down)
+
+            sys.stderr.write(show_cursor)
+            sys.stderr.write(f"[PENSANDO] listo en {elapsed:.2f}s\n")
+            sys.stderr.flush()
+
+    thread = threading.Thread(target=run, daemon=True)
     thread.start()
     return stop_event, thread
+
 
 def llama_server_ready():
     try:
