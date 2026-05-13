@@ -1163,7 +1163,33 @@ def handle_qprofile(args):
     sys.exit(1)
 
 
+
+def qia_logo():
+    lime = "\033[38;5;118m"
+    orange = "\033[38;5;215m"
+    reset = "\033[0m"
+
+    logo = [
+        "@@@@@@@@@@@@@@@@@@",
+        "@@@@@@@@@@@@@@@@@@",
+        "@@@@@        @@@@@",
+        "@@@    @@@@    @@@",
+        "@@@   @@@@@@   @@@",
+        "@@@    @@@@    @@@",
+        "@@@@@          @@@",
+        "@@@@@@@@@@@@   @@@",
+        "@@@@@@@@@@@@   @@@",
+    ]
+
+    for i, line in enumerate(logo):
+        color = lime if i % 2 == 0 else orange
+        print(color + line + reset)
+
+    print()
+
+
 def qia_status():
+    qia_logo()
     print("qia status")
     print()
 
@@ -1195,6 +1221,7 @@ def qia_stop():
 
 
 def qia_doctor():
+    qia_logo()
     print("qia doctor")
     print()
 
