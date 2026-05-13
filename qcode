@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-QIA_INVOKED_AS=qcode python3 "$(dirname "$0")/qia.py" "$@"
+QIA_INVOKED_AS=qcode python3 "$HOME/bin/qia.py" "$@"
