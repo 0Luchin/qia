@@ -5,7 +5,7 @@ Sin API keys, sin costos, sin datos que salen de tu máquina.
 
 ## Requisitos
 
-- Windows 11 con WSL2 (Ubuntu 22.04 o superior)
+- Windows 10 o Windows 11 con WSL2 (Ubuntu 22.04 o superior)
 - [Ollama](https://ollama.com) instalado en WSL2
 - Python 3.10 o superior
 - Al menos un modelo descargado (ver abajo)
