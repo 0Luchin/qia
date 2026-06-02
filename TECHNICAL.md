@@ -17,7 +17,8 @@ El script único `qia.py` actúa como orquestador y cliente, cambiando su compor
 
 ### 3. Backend Manager (`QIABackend`)
 - Gestiona la ejecución de `llama-server`.
-- `ensure()`: Verifica si el servidor está activo; si no, lo inicia automáticamente usando el binario y modelo configurados en las rutas estándar de LARLAB.
+- **Puerto:** Por defecto utiliza `18080` (configurable en `~/.config/qia/port`).
+- **Compilación:** `make install` compila automáticamente `llama.cpp` si no está presente, asegurando compatibilidad con tu hardware.
 
 ### 4. Lógica de Prompting y Modos
 - **Perfiles:** Define la "personalidad" (terminal, noc, python).

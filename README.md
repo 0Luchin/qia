@@ -21,15 +21,17 @@ To install QIA, open your terminal (Linux/WSL) and follow these steps:
 ### 1. Prepare the system
 ```bash
 sudo apt update
-sudo apt install -y make wget python3
+# Necessary to compile llama.cpp and manage the repository
+sudo apt install -y make wget python3 cmake git build-essential
 ```
 
 ### 2. Install QIA
 ```bash
 make install
 ```
+*Note: The installation will compile the inference engine (llama.cpp) locally, which may take a few minutes depending on your hardware.*
 
-Once installed, type `qia status` in your terminal to verify that everything works correctly.
+Once installed, type `qia status` in your terminal to verify that everything works correctly. The backend runs on port `18080` by default.
 
 ---
 

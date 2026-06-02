@@ -21,15 +21,17 @@ Para instalar QIA, abre tu terminal (Linux/WSL) y sigue estos pasos:
 ### 1. Preparar el sistema
 ```bash
 sudo apt update
-sudo apt install -y make wget python3
+# Necesario para compilar llama.cpp y gestionar el repositorio
+sudo apt install -y make wget python3 cmake git build-essential
 ```
 
 ### 2. Instalar QIA
 ```bash
 make install
 ```
+*Nota: La instalación compilará el motor de inferencia (llama.cpp) localmente, por lo que puede tomar unos minutos dependiendo de tu hardware.*
 
-Una vez instalado, escribe `qia status` en tu terminal para verificar que todo funciona correctamente.
+Una vez instalado, escribe `qia status` en tu terminal para verificar que todo funciona correctamente. El backend se ejecuta por defecto en el puerto `18080`.
 
 ---
 
