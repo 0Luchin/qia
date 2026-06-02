@@ -1,32 +1,32 @@
-# QIA v2 - Quantum Infrastructure Assistant 🚀
+# QIA - Query Artificial Intelligence 🚀
 
-**QIA** es un asistente técnico diseñado para la automatización, gestión de infraestructura y generación de código, ejecutado localmente para garantizar **privacidad total** y **velocidad**.
+**QIA** (Query Artificial Intelligence) es un asistente técnico diseñado para la automatización, gestión de infraestructura y generación de código, ejecutado localmente para garantizar **privacidad total** y **velocidad**.
 
----
+## 🛠️ Estructura de este directorio
 
-## 🛠️ ¿Qué hace QIA?
+- **`qia.py`**: El script principal. Todo el poder de QIA está aquí.
+- **`Makefile`**: Automatiza la instalación, creación de symlinks y descarga del modelo.
+- **`SETUP.md`**: Guía rápida para instalar QIA en tu sistema (Linux/WSL).
+- **`TECHNICAL.md`**: Documentación técnica detallada para desarrolladores.
 
-QIA convierte tu terminal en un asistente experto:
+## 🚀 Instalación rápida
 
-*   **`q`**: Consultas técnicas rápidas. Respuestas directas y precisas.
-*   **`qdo`**: Sintetizador de comandos Bash. Incluye menú interactivo para **ejecutar** comandos directamente en tu terminal, **refinarlos** o pedir una **explicación**.
-*   **`qcode`**: Generador de código fuente. Incluye herramientas para **guardar** archivos automáticamente con la extensión correcta, **refinar** el código o realizar **explicaciones** por bloques.
+Para instalar QIA en tu sistema, asegúrate de tener `make` y `wget` instalados, luego ejecuta:
 
----
+```bash
+make install
+```
 
-## 🚀 Instalación
-
-Si eres usuario de Linux o WSL en Windows, puedes instalar QIA siguiendo nuestra guía rápida:
-
-👉 **[Ir a la guía de instalación (SETUP.md)](SETUP.md)**
-
----
-
-## 🏗️ Organización del Repositorio
-
-- **`/` (Raíz)**: Código fuente de la versión actual (v2), instalador (`Makefile`) y guías.
-- **`/qia1`**: Archivos históricos de la primera versión (solo referencia).
-- **`TECHNICAL.md`**: Detalles técnicos profundos sobre la arquitectura para desarrolladores.
+Para más detalles, revisa [SETUP.md](SETUP.md).
 
 ---
-*Desarrollado para LARLAB - 2026*
+
+## ☕ Donaciones
+
+Si te ha sido útil esta herramienta y quieres apoyar su desarrollo continuo, ¡cualquier aporte es bienvenido!
+
+- [PayPal](https://paypal.me/0Luchin)
+- [Ko-fi](https://ko-fi.com/0luchin)
+
+---
+*Desarrollado por [0Luchin](https://github.com/0Luchin) para LARLAB - 2026*
