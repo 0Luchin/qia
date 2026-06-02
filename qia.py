@@ -22,7 +22,15 @@ COLOR_FILE = CONFIG_DIR / "color"
 
 DEFAULT_MODEL = "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
 DEFAULT_PROFILE = "terminal"
-BACKEND_URL = "http://127.0.0.1:8080"
+PORT_FILE = CONFIG_DIR / "port"
+DEFAULT_PORT = "18080"
+
+def get_port():
+    if not PORT_FILE.exists():
+        PORT_FILE.write_text(DEFAULT_PORT + "\n")
+    return PORT_FILE.read_text().strip()
+
+BACKEND_URL = f"http://127.0.0.1:{get_port()}"
 
 # ANSI Colors
 C_RESET = "\033[0m"
@@ -170,7 +178,7 @@ class QIABackend:
 
         log_file = open(LOG_DIR / "llama-server.log", "a")
         subprocess.Popen(
-            [str(server_bin), "-m", str(model_path), "--port", "8080", "--host", "127.0.0.1", "-c", "2048"],
+            [str(server_bin), "-m", str(model_path), "--port", get_port(), "--host", "127.0.0.1", "-c", "2048"],
             stdout=log_file, stderr=subprocess.STDOUT, start_new_session=True
         )
         

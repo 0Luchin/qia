@@ -1,14 +1,36 @@
-# Makefile para QIA v2
-# Instala QIA en el sistema local
+# Makefile para QIA
+# Instala QIA y prepara el entorno completo (motor + modelo)
 
 BIN_DIR := $(HOME)/bin
 INSTALL_PATH := $(BIN_DIR)/qia.py
+LLAMA_DIR := $(HOME)/local-llm/llama.cpp
 MODEL_DIR := $(HOME)/local-llm/models/qwen2.5-coder-3b
 MODEL_URL := https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf
+PORT := 18080
 
-install:
-	@echo "--- Instalando QIA v2 ---"
+install: build_llama download_model install_qia
+
+build_llama:
+	@echo "--- Preparando llama.cpp ---"
+	mkdir -p $(HOME)/local-llm
+	@if [ ! -d $(LLAMA_DIR) ]; then 
+		git clone https://github.com/ggerganov/llama.cpp $(LLAMA_DIR); 
+	fi
+	cd $(LLAMA_DIR) && mkdir -p build && cd build && cmake .. && make -j
+
+download_model:
+	@echo "--- Preparando modelo ---"
+	mkdir -p $(MODEL_DIR)
+	@if [ ! -f $(MODEL_DIR)/qwen2.5-coder-3b-instruct-q4_k_m.gguf ]; then 
+		wget -O $(MODEL_DIR)/qwen2.5-coder-3b-instruct-q4_k_m.gguf $(MODEL_URL); 
+	fi
+
+install_qia:
+	@echo "--- Instalando QIA ---"
 	mkdir -p $(BIN_DIR)
+	mkdir -p $(HOME)/.config/qia
+	# Guardar puerto configurado
+	echo $(PORT) > $(HOME)/.config/qia/port
 	# Copiar script principal
 	cp qia.py $(INSTALL_PATH)
 	chmod +x $(INSTALL_PATH)
@@ -16,13 +38,9 @@ install:
 	ln -sf $(INSTALL_PATH) $(BIN_DIR)/q
 	ln -sf $(INSTALL_PATH) $(BIN_DIR)/qcode
 	ln -sf $(INSTALL_PATH) $(BIN_DIR)/qia
-	# Crear modelo si no existe
-	mkdir -p $(MODEL_DIR)
-	@if [ ! -f $(MODEL_DIR)/qwen2.5-coder-3b-instruct-q4_k_m.gguf ]; then \
-		echo "Descargando modelo..."; \
-		wget -O $(MODEL_DIR)/qwen2.5-coder-3b-instruct-q4_k_m.gguf $(MODEL_URL); \
-	fi
 	@echo "--- Instalación terminada ---"
 
 clean:
 	rm -f $(BIN_DIR)/q $(BIN_DIR)/qcode $(BIN_DIR)/qia $(INSTALL_PATH)
+	rm -rf $(LLAMA_DIR)
+	# Nota: Se preserva la carpeta de modelos para no borrar descargas pesadas
