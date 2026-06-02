@@ -1,1 +1,0 @@
-/home/lar/bin/qia.py
