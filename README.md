@@ -29,4 +29,4 @@ Si te ha sido útil esta herramienta y quieres apoyar su desarrollo continuo, ¡
 - [Ko-fi](https://ko-fi.com/0luchin)
 
 ---
-*Desarrollado por [0Luchin](https://github.com/0Luchin) para LARLAB - 2026*
+*Desarrollado por [0Luchin](https://github.com/0Luchin) para [LARLAB](https://larlab.xyz/) - 2026*
