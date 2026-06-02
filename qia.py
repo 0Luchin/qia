@@ -825,6 +825,121 @@ def run_qdo_commands(cmd):
             time.sleep(0.5)
             print()
 
+
+def stream_ollama(prompt, mode):
+    invoked_name = os.environ.get("QIA_INVOKED_AS") or Path(sys.argv[0]).name
+
+    if invoked_name == "qdo":
+        mode = "qdo"
+    elif invoked_name == "qcode":
+        mode = "qcode"
+    else:
+        mode = "q"
+
+    ensure_llama_server()
+
+    system = harden_system_prompt("", mode)
+    start_time = time.perf_counter()
+
+    if mode == "qdo":
+        max_tokens = 120
+        temperature = 0.02
+    elif mode == "qcode":
+        max_tokens = 400
+        temperature = 0.04
+    else:
+        max_tokens = 80
+        temperature = 0.03
+
+    payload = {
+        "model": "qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt.strip()}
+        ],
+        "max_tokens": max_tokens,
+        "n_predict": max_tokens,
+        "temperature": temperature,
+        "top_p": 0.8,
+        "stream": True
+    }
+
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        "http://127.0.0.1:8080/v1/chat/completions",
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+
+    full_text = []
+    printed_stream = False
+    wait_counter = None
+    wait_thread = None
+
+    if logo_enabled():
+        wait_counter, wait_thread = start_wait_counter(f"qia {mode}")
+
+    try:
+        with urllib.request.urlopen(req, timeout=300 if mode == "qcode" else 120) as response:
+            for raw_line in response:
+                line = raw_line.decode("utf-8").strip()
+
+                if not line or line == "data: [DONE]":
+                    continue
+
+                if line.startswith("data: "):
+                    line = line[6:]
+
+                try:
+                    chunk = json.loads(line)
+                    token = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                    if token:
+                        # Primer token: apagar el logo antes de imprimir
+                        if wait_counter is not None:
+                            wait_counter.set()
+                            wait_thread.join(timeout=1.0)
+                            wait_counter = None
+                            wait_thread = None
+                        if mode in ("q", "qcode"):
+                            sys.stdout.write(token)
+                            sys.stdout.flush()
+                            printed_stream = True
+                        full_text.append(token)
+                except json.JSONDecodeError:
+                    continue
+
+    except TimeoutError:
+        if wait_counter is not None:
+            wait_counter.set()
+            wait_thread.join(timeout=1.0)
+        print("", file=sys.stderr)
+        print("\033[31mError: timeout esperando respuesta de llama-server.\033[0m")
+        sys.exit(1)
+
+    except urllib.error.URLError:
+        if wait_counter is not None:
+            wait_counter.set()
+            wait_thread.join(timeout=1.0)
+        print("", file=sys.stderr)
+        print("\033[31mError: llama-server no responde en http://127.0.0.1:8080\033[0m")
+        print("Probá revisar qia status o qia doctor.")
+        sys.exit(1)
+
+    elapsed = time.perf_counter() - start_time
+    answer = "".join(full_text)
+    answer = clean_answer(answer)
+
+    if mode == "qcode":
+        answer = clean_qcode_answer(answer)
+    if mode == "qdo":
+        answer = normalize_qdo_command(answer)
+    if mode == "q" and wants_command_only(prompt):
+        answer = clean_command_only_answer(answer)
+
+    return answer, elapsed, printed_stream
+
+
 def ask_ollama(prompt, mode):
     invoked_name = os.environ.get("QIA_INVOKED_AS") or Path(sys.argv[0]).name
 
@@ -870,7 +985,7 @@ def ask_ollama(prompt, mode):
         "n_predict": max_tokens,
         "temperature": temperature,
         "top_p": 0.8,
-        "stream": False
+        "stream": True
     }
 
     data = json.dumps(payload).encode("utf-8")
@@ -1622,7 +1737,7 @@ def main():
     prompt = " ".join(sys.argv[1:])
 
     if invoked_as == "qdo":
-        cmd, elapsed = ask_ollama(prompt, "qdo")
+        cmd, elapsed, _ = stream_ollama(prompt, "qdo")
         cmd = extract_command_for_qdo(cmd)
 
         print("\n" + "\033[93mComando propuesto:\033[0m" + "\n")
@@ -1646,11 +1761,10 @@ def main():
             print(c("Cancelado.", C_YELLOW))
 
     else:
-        answer, elapsed = ask_ollama(prompt, "q")
-        print(c(answer, C_CYAN))
+        answer, elapsed, streamed = stream_ollama(prompt, "q")
+        if not streamed:
+            print(c(answer, C_CYAN))
         print(f"\n{c(f'# Tiempo: {elapsed:.2f}s', C_GRAY)}")
-
-        # Copiado automático desactivado.
 
 if __name__ == "__main__":
     main()
