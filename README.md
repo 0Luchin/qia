@@ -16,16 +16,26 @@ QIA turns your terminal into an expert assistant:
 
 ## 🚀 Installation
 
-If you are a Linux or WSL user, you can install QIA by following our quick guide:
+To install QIA, open your terminal (Linux/WSL) and follow these steps:
 
-👉 **[Go to installation guide (SETUP.md)](SETUP.md)**
+### 1. Prepare the system
+```bash
+sudo apt update
+sudo apt install -y make wget python3
+```
+
+### 2. Install QIA
+```bash
+make install
+```
+
+Once installed, type `qia status` in your terminal to verify that everything works correctly.
 
 ---
 
 ## 🏗️ Repository Structure
 
-- **`/` (Root)**: Source code of the current version (v2), installer (`Makefile`), and guides.
-- **`/qia1`**: Historical files from the first version (for reference only).
+- **`/` (Root)**: Source code, installer (`Makefile`), and guides.
 - **`TECHNICAL.md`**: Deep technical details about the architecture for developers.
 
 ---
