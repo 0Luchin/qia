@@ -9,8 +9,11 @@
 QIA turns your terminal into an expert assistant:
 
 *   **`q`**: Rapid technical queries. Direct and precise answers.
-*   **`qdo`**: Bash command synthesizer. Includes an interactive menu to **execute** commands directly in your terminal, **refine** them, or request an **explanation**.
-*   **`qcode`**: Source code generator. Includes tools to **save** files automatically with the correct extension, **refine** the code, or perform **block-based explanations**.
+    *   *Example:* `q "How do I check open ports in Linux?"`
+*   **`qdo`**: Bash command synthesizer. Includes an interactive menu to **execute**, **refine**, or **explain** commands.
+    *   *Example:* `qdo "Find all files larger than 100MB in /var/log"`
+*   **`qcode`**: Source code generator. Includes tools to **save** files, **refine**, or **explain** code.
+    *   *Example:* `qcode "Create a Python script to scrape a website using BeautifulSoup"`
 
 ---
 
