@@ -1,136 +1,32 @@
-# qia — asistente de terminal con IA local
+# QIA v2 - Quantum Infrastructure Assistant 🚀
 
-Copiloto de terminal que corre modelos de lenguaje localmente vía Ollama.
-Sin API keys, sin costos, sin datos que salen de tu máquina.
+**QIA** es un asistente técnico diseñado para la automatización, gestión de infraestructura y generación de código, ejecutado localmente para garantizar **privacidad total** y **velocidad**.
 
-## Requisitos
+---
 
-- Windows 10 o Windows 11 con WSL2 (Ubuntu 22.04 o superior)
-- [Ollama](https://ollama.com) instalado en WSL2
-- Python 3.10 o superior
-- Al menos un modelo descargado (ver abajo)
+## 🛠️ ¿Qué hace QIA?
 
-## Instalación
+QIA convierte tu terminal en un asistente experto:
 
-### 1. Instalar Ollama en WSL2
+*   **`q`**: Consultas técnicas rápidas. Respuestas directas y precisas.
+*   **`qdo`**: Sintetizador de comandos Bash. Incluye menú interactivo para **ejecutar** comandos directamente en tu terminal, **refinarlos** o pedir una **explicación**.
+*   **`qcode`**: Generador de código fuente. Incluye herramientas para **guardar** archivos automáticamente con la extensión correcta, **refinar** el código o realizar **explicaciones** por bloques.
 
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-```
+---
 
-Verificar que esté corriendo:
+## 🚀 Instalación
 
-```bash
-ollama serve &
-ollama list
-```
+Si eres usuario de Linux o WSL en Windows, puedes instalar QIA siguiendo nuestra guía rápida:
 
-### 2. Descargar un modelo
+👉 **[Ir a la guía de instalación (SETUP.md)](SETUP.md)**
 
-El modelo por defecto es `qwen2.5-coder:3b`. Es el recomendado para empezar:
+---
 
-```bash
-ollama pull qwen2.5-coder:3b
-```
+## 🏗️ Organización del Repositorio
 
-Otros modelos compatibles:
+- **`/` (Raíz)**: Código fuente de la versión actual (v2), instalador (`Makefile`) y guías.
+- **`/qia1`**: Archivos históricos de la primera versión (solo referencia).
+- **`TECHNICAL.md`**: Detalles técnicos profundos sobre la arquitectura para desarrolladores.
 
-```bash
-ollama pull qwen2.5-coder:7b     # mejor calidad, más lento
-ollama pull qwen2.5-coder:1.5b   # más liviano, respuestas rápidas
-ollama pull deepseek-coder:1.3b  # alternativa liviana
-```
-
-### 3. Clonar el repositorio
-
-```bash
-git clone https://github.com/0Luchin/qia.git
-cd qia
-```
-
-### 4. Instalar los comandos
-
-```bash
-chmod +x q qdo qmodel qprofile
-sudo cp q qdo qmodel qprofile /usr/local/bin/
-```
-
-Verificar:
-
-```bash
-q "hola, funcionás?"
-```
-
-## Uso
-
-### q — pregunta y respuesta
-
-```bash
-q "cómo listo puertos abiertos en Linux"
-q "qué hace el comando find -mtime -1"
-q "cómo copio un archivo entre directorios en bash"
-```
-
-### qdo — genera y ejecuta comandos
-
-Genera un comando, lo muestra y pide confirmación antes de ejecutar.
-
-```bash
-qdo "listar archivos modificados en las últimas 24 horas"
-qdo "mostrar uso de disco por directorio en /var"
-qdo "buscar archivos .log mayores a 100MB"
-```
-
-Nunca ejecuta comandos destructivos — tiene lista de bloqueo integrada
-que incluye `rm -rf`, `mkfs`, `shutdown`, `curl | sh` y similares.
-
-### qmodel — gestionar modelos
-
-```bash
-qmodel              # ver modelo actual
-qmodel list         # listar modelos instalados con descripción
-qmodel select       # elegir modelo por número
-qmodel catalog      # ver modelos sugeridos
-qmodel reset        # volver a qwen2.5-coder:3b
-```
-
-### qprofile — cambiar el comportamiento
-
-Los perfiles cambian el enfoque del modelo sin tocar el código.
-
-```bash
-qprofile            # ver perfil actual
-qprofile list       # listar perfiles disponibles
-qprofile select     # elegir perfil por número
-```
-
-Perfiles disponibles:
-
-| Perfil | Uso |
-|--------|-----|
-| `terminal` | copiloto general de Linux/WSL (default) |
-| `noc` | diagnóstico de red, servicios, logs |
-| `bash` | Bash, pipelines y comandos Linux |
-| `python` | Python para scripting e infraestructura |
-| `reviewer` | revisión conservadora de código |
-| `teacher` | explicación técnica paso a paso |
-| `custom` | perfil personalizado editable |
-
-Perfil custom:
-
-```bash
-qprofile edit       # editar con nano
-qprofile custom "Asistente especializado en Docker y contenedores"
-```
-
-## Notas
-
-- qia corre 100% local — ningún dato sale de tu máquina
-- El portapapeles usa `clip.exe` de Windows — funciona en WSL2
-- En Linux nativo reemplazá `clip.exe` por `xclip` en `qia.py`
-- En macOS reemplazá `clip.exe` por `pbcopy` en `qia.py`
-- Git Bash no es compatible — usar WSL2
-
-## Licencia
-
-MIT
+---
+*Desarrollado para LARLAB - 2026*
