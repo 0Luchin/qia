@@ -1,32 +1,41 @@
 # QIA - Query Artificial Intelligence 🚀
 
-**QIA** (Query Artificial Intelligence) es un asistente técnico diseñado para la automatización, gestión de infraestructura y generación de código, ejecutado localmente para garantizar **privacidad total** y **velocidad**.
-
-## 🛠️ Estructura de este directorio
-
-- **`qia.py`**: El script principal. Todo el poder de QIA está aquí.
-- **`Makefile`**: Automatiza la instalación, creación de symlinks y descarga del modelo.
-- **`SETUP.md`**: Guía rápida para instalar QIA en tu sistema (Linux/WSL).
-- **`TECHNICAL.md`**: Documentación técnica detallada para desarrolladores.
-
-## 🚀 Instalación rápida
-
-Para instalar QIA en tu sistema, asegúrate de tener `make` y `wget` instalados, luego ejecuta:
-
-```bash
-make install
-```
-
-Para más detalles, revisa [SETUP.md](SETUP.md).
+**QIA** (Query Artificial Intelligence) is a technical assistant designed for automation, infrastructure management, and code generation, running locally to ensure **total privacy** and **speed**.
 
 ---
 
-## ☕ Donaciones
+## 🛠️ What does QIA do?
 
-Si te ha sido útil esta herramienta y quieres apoyar su desarrollo continuo, ¡cualquier aporte es bienvenido!
+QIA turns your terminal into an expert assistant:
+
+*   **`q`**: Rapid technical queries. Direct and precise answers.
+*   **`qdo`**: Bash command synthesizer. Includes an interactive menu to **execute** commands directly in your terminal, **refine** them, or request an **explanation**.
+*   **`qcode`**: Source code generator. Includes tools to **save** files automatically with the correct extension, **refine** the code, or perform **block-based explanations**.
+
+---
+
+## 🚀 Installation
+
+If you are a Linux or WSL user, you can install QIA by following our quick guide:
+
+👉 **[Go to installation guide (SETUP.md)](SETUP.md)**
+
+---
+
+## 🏗️ Repository Structure
+
+- **`/` (Root)**: Source code of the current version (v2), installer (`Makefile`), and guides.
+- **`/qia1`**: Historical files from the first version (for reference only).
+- **`TECHNICAL.md`**: Deep technical details about the architecture for developers.
+
+---
+
+## ☕ Donations
+
+If you have found this tool useful and want to support its continued development, any contribution is welcome!
 
 - [PayPal](https://paypal.me/0Luchin)
 - [Ko-fi](https://ko-fi.com/0luchin)
 
 ---
-*Desarrollado por [0Luchin](https://github.com/0Luchin) para [LARLAB](https://larlab.xyz/) - 2026*
+*Made with AI and love by [0Luchin](https://github.com/0Luchin) for [LARLAB](https://larlab.xyz/) - 2026*
