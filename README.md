@@ -34,7 +34,7 @@ make install
 ```
 *Note: The installation will compile the inference engine (llama.cpp) locally, which may take a few minutes depending on your hardware.*
 
-Once installed, type `qia status` in your terminal to verify that everything works correctly. The backend runs on port `18080` by default.
+Once installed, type `qia status` in your terminal to verify that everything works correctly. The backend runs on port `18080` by default. You can change this port by editing `~/.config/qia/port` (this setting will persist across reinstalls).
 
 ---
 

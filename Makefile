@@ -29,8 +29,10 @@ install_qia:
 	@echo "--- Instalando QIA ---"
 	mkdir -p $(BIN_DIR)
 	mkdir -p $(HOME)/.config/qia
-	# Guardar puerto configurado
-	echo $(PORT) > $(HOME)/.config/qia/port
+	# Guardar puerto configurado solo si no existe
+	@if [ ! -f $(HOME)/.config/qia/port ]; then \
+		echo $(PORT) > $(HOME)/.config/qia/port; \
+	fi
 	# Copiar script principal
 	cp qia.py $(INSTALL_PATH)
 	chmod +x $(INSTALL_PATH)

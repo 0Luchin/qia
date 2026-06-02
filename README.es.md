@@ -34,7 +34,7 @@ make install
 ```
 *Nota: La instalación compilará el motor de inferencia (llama.cpp) localmente, por lo que puede tomar unos minutos dependiendo de tu hardware.*
 
-Una vez instalado, escribe `qia status` en tu terminal para verificar que todo funciona correctamente. El backend se ejecuta por defecto en el puerto `18080`.
+Una vez instalado, escribe `qia status` en tu terminal para verificar que todo funciona correctamente. El backend se ejecuta por defecto en el puerto `18080`. Puedes cambiar este puerto editando `~/.config/qia/port` (esta configuración persistirá aunque reinstales QIA).
 
 ---
 
