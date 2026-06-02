@@ -1,5 +1,0 @@
-NAME                   ID              SIZE      MODIFIED    
-deepseek-coder:6.7b    ce298d984115    3.8 GB    5 hours ago    
-deepseek-coder:1.3b    3ddd2d3fc8d2    776 MB    5 hours ago    
-qwen2.5-coder:7b       dae161e27b0e    4.7 GB    5 hours ago    
-qwen2.5-coder:3b       f72c60cabf62    1.9 GB    6 hours ago    
