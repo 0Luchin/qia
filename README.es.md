@@ -36,6 +36,8 @@ make install
 
 Una vez instalado, escribe `qia status` en tu terminal para verificar que todo funciona correctamente. El backend se ejecuta por defecto en el puerto `18080`. Puedes cambiar este puerto editando `~/.config/qia/port` (esta configuración persistirá aunque reinstales QIA).
 
+*Nota: El backend (`llama-server`) se ejecuta en segundo plano para garantizar tiempos de respuesta rápidos. Permanece activo incluso después de cerrar la terminal. Usa `qia stop` para detenerlo y liberar recursos del sistema cuando hayas terminado.*
+
 ---
 
 ## 🏗️ Organización del Repositorio

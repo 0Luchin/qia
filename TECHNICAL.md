@@ -19,6 +19,7 @@ El script único `qia.py` actúa como orquestador y cliente, cambiando su compor
 - Gestiona la ejecución de `llama-server`.
 - **Puerto:** Por defecto utiliza `18080` (configurable en `~/.config/qia/port`).
 - **Compilación:** `make install` compila automáticamente `llama.cpp` si no está presente, asegurando compatibilidad con tu hardware.
+- **Ciclo de Vida:** El servidor permanece activo en segundo plano para evitar recargas costosas del modelo. Ejecuta `qia stop` para detenerlo explícitamente y liberar recursos.
 
 ### 4. Lógica de Prompting y Modos
 - **Perfiles:** Define la "personalidad" (terminal, noc, python).
