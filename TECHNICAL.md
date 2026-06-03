@@ -44,9 +44,11 @@ Cuando eliges `[G]uardar`, `qcode` realiza una mini-consulta interna al modelo p
 Para evitar respuestas masivas en códigos largos, `qcode` pregunta qué parte específica deseas entender, optimizando el tiempo y el uso de tokens.
 
 
-### 6. Sistema de Instalación (`cmd_qia_install`)
-- Crea enlaces simbólicos en `~/bin/` para `q`, `qcode`, `qia`, etc., apuntando todos al mismo script `qia.py`.
-- Crea un "wrapper" especial para `qdo` que define la variable de entorno `QIA_INVOKED_AS` para disparar la lógica de ejecución Bash.
+### 6. Sistema de Instalación (`scripts/install.sh`)
+- Orquestado por `Makefile` (`make install`).
+- Verifica dependencias, espacio en disco, existencia de componentes (evitando recompilaciones/redescargas innecesarias).
+- Crea enlaces simbólicos en `~/bin/` para `q`, `qcode`, `qia`, etc.
+- Crea el "wrapper" `qdo` que define la variable de entorno `QIA_INVOKED_AS` para disparar la lógica de ejecución Bash.
 
 ---
 

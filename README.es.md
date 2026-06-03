@@ -19,31 +19,23 @@ QIA convierte tu terminal en un asistente experto:
 
 ## 🚀 Instalación
 
-Para instalar QIA, abre tu terminal (Linux/WSL) y sigue estos pasos:
+Para instalar QIA, simplemente ejecuta en la raíz del repositorio:
 
-### 1. Preparar el sistema
-```bash
-sudo apt update
-# Necesario para compilar llama.cpp y gestionar el repositorio
-sudo apt install -y make wget python3 cmake git build-essential
-```
-
-### 2. Instalar QIA
 ```bash
 make install
 ```
-*Nota: La instalación compilará el motor de inferencia (llama.cpp) localmente, por lo que puede tomar unos minutos dependiendo de tu hardware.*
 
-Una vez instalado, escribe `qia status` en tu terminal para verificar que todo funciona correctamente. El backend se ejecuta por defecto en el puerto `18080`. Puedes cambiar este puerto editando `~/.config/qia/port` (esta configuración persistirá aunque reinstales QIA).
+*Nota: El instalador verificará dependencias, compilará el motor de inferencia (`llama.cpp`) y descargará el modelo automáticamente si no existen.*
 
-*Nota: El backend (`llama-server`) se ejecuta en segundo plano para garantizar tiempos de respuesta rápidos. Permanece activo automáticamente para estar listo para tu próxima consulta. Se apagará solo tras un período de inactividad (el valor predeterminado es 30 minutos). Puedes configurar este tiempo con `qia timeout <minutos>` o forzar el apagado en cualquier momento usando `qia stop` para liberar recursos del sistema.*
+Una vez instalado, usa `qia help` para ver los comandos disponibles.
 
 ---
 
 ## 🏗️ Organización del Repositorio
 
-- **`/` (Raíz)**: Código fuente, instalador (`Makefile`) y guías.
-- **`TECHNICAL.md`**: Detalles técnicos profundos sobre la arquitectura para desarrolladores.
+- **`scripts/`**: Scripts auxiliares (instalador, etc.).
+- **`qia.py`**: Código principal y cliente.
+- **`TECHNICAL.md`**: Detalles técnicos profundos.
 
 ---
 

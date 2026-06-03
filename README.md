@@ -19,31 +19,23 @@ QIA turns your terminal into an expert assistant:
 
 ## 🚀 Installation
 
-To install QIA, open your terminal (Linux/WSL) and follow these steps:
+To install QIA, simply run in the repository root:
 
-### 1. Prepare the system
-```bash
-sudo apt update
-# Necessary to compile llama.cpp and manage the repository
-sudo apt install -y make wget python3 cmake git build-essential
-```
-
-### 2. Install QIA
 ```bash
 make install
 ```
-*Note: The installation will compile the inference engine (llama.cpp) locally, which may take a few minutes depending on your hardware.*
 
-Once installed, type `qia status` in your terminal to verify that everything works correctly. The backend runs on port `18080` by default. You can change this port by editing `~/.config/qia/port` (this setting will persist across reinstalls).
+*Note: The installer will check dependencies, compile the inference engine (llama.cpp), and download the model automatically if they don't exist.*
 
-*Note: The backend (`llama-server`) runs in the background to ensure fast response times. It stays active automatically to be ready for your next query. It will shut down automatically after a period of inactivity (default is 30 minutes). You can configure this time using `qia timeout <minutes>` or force a shutdown at any time using `qia stop` to free up system resources.*
+Once installed, use `qia help` to see available commands.
 
 ---
 
 ## 🏗️ Repository Structure
 
-- **`/` (Root)**: Source code, installer (`Makefile`), and guides.
-- **`TECHNICAL.md`**: Deep technical details about the architecture for developers.
+- **`scripts/`**: Auxiliary scripts (installer, etc.).
+- **`qia.py`**: Main code and client.
+- **`TECHNICAL.md`**: Deep technical details.
 
 ---
 
