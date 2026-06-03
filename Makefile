@@ -40,6 +40,11 @@ install_qia:
 	ln -sf $(INSTALL_PATH) $(BIN_DIR)/q
 	ln -sf $(INSTALL_PATH) $(BIN_DIR)/qcode
 	ln -sf $(INSTALL_PATH) $(BIN_DIR)/qia
+	@echo "--- Verificando PATH ---"
+	@if ! echo $$PATH | grep -q "$(BIN_DIR)"; then \
+		echo "AVISO: $(BIN_DIR) no está en tu PATH. Añádelo agregando esto a tu ~/.bashrc o ~/.zshrc:"; \
+		echo 'export PATH="$$HOME/bin:$$PATH"'; \
+	fi
 	@echo "--- Instalación terminada ---"
 
 clean:
