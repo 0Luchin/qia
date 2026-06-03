@@ -13,26 +13,20 @@ install: build_llama download_model install_qia
 build_llama:
 	@echo "--- Preparando llama.cpp ---"
 	mkdir -p $(HOME)/local-llm
-	@if [ ! -d $(LLAMA_DIR) ]; then 
-		git clone https://github.com/ggerganov/llama.cpp $(LLAMA_DIR); 
-	fi
+	@if [ ! -d $(LLAMA_DIR) ]; then git clone https://github.com/ggerganov/llama.cpp $(LLAMA_DIR); fi
 	cd $(LLAMA_DIR) && mkdir -p build && cd build && cmake .. && make -j
 
 download_model:
 	@echo "--- Preparando modelo ---"
 	mkdir -p $(MODEL_DIR)
-	@if [ ! -f $(MODEL_DIR)/qwen2.5-coder-3b-instruct-q4_k_m.gguf ]; then 
-		wget -O $(MODEL_DIR)/qwen2.5-coder-3b-instruct-q4_k_m.gguf $(MODEL_URL); 
-	fi
+	@if [ ! -f $(MODEL_DIR)/qwen2.5-coder-3b-instruct-q4_k_m.gguf ]; then wget -O $(MODEL_DIR)/qwen2.5-coder-3b-instruct-q4_k_m.gguf $(MODEL_URL); fi
 
 install_qia:
 	@echo "--- Instalando QIA ---"
 	mkdir -p $(BIN_DIR)
 	mkdir -p $(HOME)/.config/qia
 	# Guardar puerto configurado solo si no existe
-	@if [ ! -f $(HOME)/.config/qia/port ]; then \
-		echo $(PORT) > $(HOME)/.config/qia/port; \
-	fi
+	@if [ ! -f $(HOME)/.config/qia/port ]; then echo $(PORT) > $(HOME)/.config/qia/port; fi
 	# Copiar script principal
 	cp qia.py $(INSTALL_PATH)
 	chmod +x $(INSTALL_PATH)
@@ -41,10 +35,7 @@ install_qia:
 	ln -sf $(INSTALL_PATH) $(BIN_DIR)/qcode
 	ln -sf $(INSTALL_PATH) $(BIN_DIR)/qia
 	@echo "--- Verificando PATH ---"
-	@if ! echo $$PATH | grep -q "$(BIN_DIR)"; then \
-		echo "AVISO: $(BIN_DIR) no está en tu PATH. Añádelo agregando esto a tu ~/.bashrc o ~/.zshrc:"; \
-		echo 'export PATH="$$HOME/bin:$$PATH"'; \
-	fi
+	@if ! echo $$PATH | grep -q "$(BIN_DIR)"; then echo "AVISO: $(BIN_DIR) no está en tu PATH. Añádelo agregando esto a tu ~/.bashrc o ~/.zshrc:" && echo 'export PATH="$$HOME/bin:$$PATH"'; fi
 	@echo "--- Instalación terminada ---"
 
 clean:
