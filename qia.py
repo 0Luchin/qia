@@ -433,7 +433,7 @@ QIA_INVOKED_AS=qdo python3 {self_path} "$@"
 def cmd_qia_status():
     def cmd_qia_status():
         def get_link(text, url):
-            display = f"{text} ({url})"
+            display = f"{text}\t{url}"
             return f"\033]8;;{url}\033\\{display}\033]8;;\033\\"
 
         links = [
