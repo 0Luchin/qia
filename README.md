@@ -36,7 +36,7 @@ make install
 
 Once installed, type `qia status` in your terminal to verify that everything works correctly. The backend runs on port `18080` by default. You can change this port by editing `~/.config/qia/port` (this setting will persist across reinstalls).
 
-*Note: The backend (`llama-server`) runs in the background to ensure fast response times. It stays active even after you close your terminal. Use `qia stop` to shut it down and free up system resources when you are finished.*
+*Note: The backend (`llama-server`) runs in the background to ensure fast response times. It stays active automatically to be ready for your next query. It will shut down automatically after a period of inactivity (default is 30 minutes). You can configure this time using `qia timeout <minutes>` or force a shutdown at any time using `qia stop` to free up system resources.*
 
 ---
 
