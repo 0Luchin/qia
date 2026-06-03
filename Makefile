@@ -34,11 +34,15 @@ install_qia:
 	ln -sf $(INSTALL_PATH) $(BIN_DIR)/q
 	ln -sf $(INSTALL_PATH) $(BIN_DIR)/qcode
 	ln -sf $(INSTALL_PATH) $(BIN_DIR)/qia
+	# Crear wrapper para qdo
+	echo '#!/usr/bin/env bash' > $(BIN_DIR)/qdo
+	echo 'QIA_INVOKED_AS=qdo python3 $(INSTALL_PATH) "$$@"' >> $(BIN_DIR)/qdo
+	chmod +x $(BIN_DIR)/qdo
 	@echo "--- Verificando PATH ---"
 	@if ! echo $$PATH | grep -q "$(BIN_DIR)"; then echo "AVISO: $(BIN_DIR) no está en tu PATH. Añádelo agregando esto a tu ~/.bashrc o ~/.zshrc:" && echo 'export PATH="$$HOME/bin:$$PATH"'; fi
 	@echo "--- Instalación terminada ---"
 
 clean:
-	rm -f $(BIN_DIR)/q $(BIN_DIR)/qcode $(BIN_DIR)/qia $(INSTALL_PATH)
+	rm -f $(BIN_DIR)/q $(BIN_DIR)/qcode $(BIN_DIR)/qia $(BIN_DIR)/qdo $(INSTALL_PATH)
 	rm -rf $(LLAMA_DIR)
 	# Nota: Se preserva la carpeta de modelos para no borrar descargas pesadas
