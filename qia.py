@@ -433,7 +433,8 @@ QIA_INVOKED_AS=qdo python3 {self_path} "$@"
 def cmd_qia_status():
     def cmd_qia_status():
         def get_link(text, url):
-            return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+            display = f"{text} ({url})"
+            return f"\033]8;;{url}\033\\{display}\033]8;;\033\\"
 
         links = [
             get_link("🔗 LARLAB", "https://larlab.xyz"),
