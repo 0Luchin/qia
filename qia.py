@@ -1,746 +1,98 @@
 #!/usr/bin/env python3
-import json
-import os
-import re
-import subprocess
-import sys
-import threading
-import time
-import random
-import urllib.request
-import urllib.error
+import json, os, re, subprocess, sys, threading, time, random, urllib.request, urllib.error
 from pathlib import Path
 
-# --- CONFIGURACIÓN Y CONSTANTES ---
-VERSION = "2.0.0"
+# --- CONFIGURACIÓN ---
 CONFIG_DIR = Path.home() / ".config" / "qia"
 LOG_DIR = Path.home() / ".local" / "share" / "qia" / "logs"
-MODEL_FILE = CONFIG_DIR / "model"
-PROFILE_FILE = CONFIG_DIR / "profile"
-SESSION_FILE = CONFIG_DIR / "session.json"
-COLOR_FILE = CONFIG_DIR / "color"
 TIMEOUT_FILE = CONFIG_DIR / "timeout"
 ACTIVITY_FILE = CONFIG_DIR / "last_activity"
-
-DEFAULT_MODEL = "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
-DEFAULT_PROFILE = "terminal"
-PORT_FILE = CONFIG_DIR / "port"
-DEFAULT_PORT = "18080"
 DEFAULT_TIMEOUT_MINS = 30
-
-def get_port():
-    if not PORT_FILE.exists():
-        PORT_FILE.write_text(DEFAULT_PORT + "
-")
-    return PORT_FILE.read_text().strip()
+PORT_FILE = CONFIG_DIR / "port"
 
 def get_timeout():
-    if not TIMEOUT_FILE.exists():
-        TIMEOUT_FILE.write_text(str(DEFAULT_TIMEOUT_MINS) + "
-")
-    try:
-        return int(TIMEOUT_FILE.read_text().strip())
-    except:
-        return DEFAULT_TIMEOUT_MINS
+    if not TIMEOUT_FILE.exists(): TIMEOUT_FILE.write_text(str(DEFAULT_TIMEOUT_MINS) + "\n")
+    try: return int(TIMEOUT_FILE.read_text().strip())
+    except: return DEFAULT_TIMEOUT_MINS
+
+def get_port():
+    if not PORT_FILE.exists(): PORT_FILE.write_text("18080\n")
+    return PORT_FILE.read_text().strip()
 
 BACKEND_URL = f"http://127.0.0.1:{get_port()}"
 
-# ANSI Colors
-C_RESET = "\033[0m"
-C_LIME = "\033[38;5;118m"
-C_ORANGE = "\033[38;5;215m"
-C_WHITE = "\033[97m"
-C_GRAY = "\033[90m"
-C_YELLOW = "\033[93m"
-C_RED = "\033[31m"
-C_CYAN = "\033[36m"
-C_BLUE = "\033[34m"
-
-# --- LOGOS ---
-LOGO_SMALL = [
-    "@@@@@@@@@@",
-    "@@@    @@@",
-    "@@  @@  @@",
-    "@@@     @@",
-    "@@@@@@  @@",
-]
-
-LOGO_LARGE = [
-    "@@@@@@@@@@@@@@@@@@",
-    "@@@@@@@@@@@@@@@@@@",
-    "@@@@@        @@@@@",
-    "@@@    @@@@    @@@",
-    "@@@   @@@@@@   @@@",
-    "@@@    @@@@    @@@",
-    "@@@@@          @@@",
-    "@@@@@@@@@@@@   @@@",
-    "@@@@@@@@@@@@   @@@",
-]
-
-# --- CLASES DE APOYO ---
-
-class QIAConfig:
-    @staticmethod
-    def ensure():
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
-        if not MODEL_FILE.exists():
-            MODEL_FILE.write_text(DEFAULT_MODEL + "
-")
-        if not PROFILE_FILE.exists():
-            PROFILE_FILE.write_text(DEFAULT_PROFILE + "
-")
-        if not COLOR_FILE.exists():
-            COLOR_FILE.write_text("on
-")
-        if not ACTIVITY_FILE.exists():
-            ACTIVITY_FILE.write_text(str(time.time()))
-
-    @staticmethod
-    def get_model():
-        QIAConfig.ensure()
-        return MODEL_FILE.read_text().strip()
-
-    @staticmethod
-    def set_model(model):
-        MODEL_FILE.write_text(model + "
-")
-
-    @staticmethod
-    def get_profile():
-        return PROFILE_FILE.read_text().strip()
-
-    @staticmethod
-    def color_enabled():
-        try:
-            return COLOR_FILE.read_text().strip() != "off"
-        except:
-            return True
-
-class QIAVisuals:
-    @staticmethod
-    def c(text, color):
-        if not QIAConfig.color_enabled(): return str(text)
-        return f"{color}{text}{C_RESET}"
-
-    @staticmethod
-    def animate_logo(stop_event, mode="q"):
-        start_time = time.perf_counter()
-        # Ocultamos cursor y empezamos en la línea actual (ya bajada por la shell)
-\033[?25l") 
-        
-        logo = LOGO_SMALL
-        block_lines = len(logo) + 1
-        
-        try:
-            while not stop_event.is_set():
-                elapsed = time.perf_counter() - start_time
-                
-                output = []
-                for line in logo:
-                    rendered_line = ""
-                    for ch in line:
-                        if ch == "@" and random.random() < 0.1:
-                            rendered_line += QIAVisuals.c("@", C_ORANGE)
-                        else:
-                            rendered_line += QIAVisuals.c(ch, C_LIME)
-                    output.append("\033[2K" + rendered_line)
-                
-                timer = QIAVisuals.c(f"{elapsed:04.1f}s", C_YELLOW).rjust(20)
-                output.append("\033[2K" + timer)
-                
-                # Escribimos el bloque y volvemos arriba inmediatamente
-                sys.stderr.write("
-".join(output) + "
-")
-                sys.stderr.write(f"\033[{block_lines}F")
-                sys.stderr.flush()
-                
-                time.sleep(0.1)
-        finally:
-            # Limpiamos todo el bloque hacia abajo y restauramos cursor
-            sys.stderr.write("\033[J\033[?25h")
-            sys.stderr.flush()
-
+# --- BACKEND ---
 class QIABackend:
     @staticmethod
     def is_ready():
         try:
-            with urllib.request.urlopen(f"{BACKEND_URL}/v1/models", timeout=1.5) as r:
-                return r.status == 200
-        except:
-            return False
-
+            with urllib.request.urlopen(f"{BACKEND_URL}/v1/models", timeout=1.5) as r: return r.status == 200
+        except: return False
+    
     @staticmethod
     def stop():
         subprocess.run(["pkill", "-f", "llama-server"], stderr=subprocess.DEVNULL)
-        # Matar también al vigilante si existe
         subprocess.run(["pkill", "-f", "qia_watcher"], stderr=subprocess.DEVNULL)
 
-    @staticmethod
-    def ensure():
-        if QIABackend.is_ready():
-            # Actualizar actividad
-            ACTIVITY_FILE.write_text(str(time.time()))
-            return True
-        
-        model = QIAConfig.get_model()
-        # En LARLAB los modelos están en carpetas específicas según la investigación previa
-        server_bin = Path.home() / "local-llm" / "llama.cpp" / "build" / "bin" / "llama-server"
-        model_path = Path.home() / "local-llm" / "models" / "qwen2.5-coder-3b" / model
-
-        if not server_bin.exists():
-            print(QIAVisuals.c(f"Error: llama-server no encontrado en {server_bin}", C_RED))
-            sys.exit(1)
-        
-        if not model_path.exists():
-            # Si el modelo exacto no existe, intentamos el default hardcoded por si acaso
-            default_path = Path.home() / "local-llm" / "models" / "qwen2.5-coder-3b" / "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
-            if default_path.exists():
-                model_path = default_path
-            else:
-                print(QIAVisuals.c(f"Error: Modelo no encontrado en {model_path}", C_RED))
-                sys.exit(1)
-
-        log_file = open(LOG_DIR / "llama-server.log", "a")
-        subprocess.Popen(
-            [str(server_bin), "-m", str(model_path), "--port", get_port(), "--host", "127.0.0.1", "-c", "2048"],
-            stdout=log_file, stderr=subprocess.STDOUT, start_new_session=True
-        )
-        
-        # Iniciar vigilante de inactividad
-        QIABackend.start_watcher()
-        
-        # Wait for readiness
-        start = time.time()
-        while time.time() - start < 30:
-            if QIABackend.is_ready():
-                ACTIVITY_FILE.write_text(str(time.time()))
-                return True
-            time.sleep(0.5)
-        return False
-    
     @staticmethod
     def start_watcher():
-        # Evitar múltiples vigilantes
         subprocess.run(["pkill", "-f", "qia_watcher"], stderr=subprocess.DEVNULL)
-        
         watcher_code = f"""
 import time, subprocess, sys
 from pathlib import Path
 activity_file = Path("{ACTIVITY_FILE}")
 timeout_file = Path("{TIMEOUT_FILE}")
-def get_timeout():
+def get_t():
     try: return int(timeout_file.read_text().strip()) * 60
     except: return {DEFAULT_TIMEOUT_MINS} * 60
-
 while True:
-    time.sleep(60) # Verifica cada minuto
+    time.sleep(60)
     try:
-        last = float(activity_file.read_text())
-        if time.time() - last > get_timeout():
+        if time.time() - float(activity_file.read_text()) > get_t():
             subprocess.run(["pkill", "-f", "llama-server"], stderr=subprocess.DEVNULL)
             sys.exit(0)
-    except:
-        pass
+    except: pass
 """
-        subprocess.Popen([sys.executable, "-c", watcher_code, "qia_watcher"], 
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, 
-                         start_new_session=True)
-
-# --- LÓGICA DE PROMPT ---
-
-PROFILES = {
-    "terminal": "Asistente experto en Linux, Bash y Python. Respuestas breves y técnicas.",
-    "noc": "Especialista en redes e infraestructura. Diagnóstico y seguridad.",
-    "python": "Experto senior en Python. Código limpio y eficiente.",
-}
-
-def get_system_prompt(mode):
-    profile_text = PROFILES.get(QIAConfig.get_profile(), PROFILES["terminal"])
-    
-    if mode == "qdo":
-        return f"{profile_text}
-Eres qdo, un sintetizador de comandos Bash. TU ÚNICA SALIDA DEBE SER EL COMANDO BASH EJECUTABLE.
-" 
-               "REGLAS ESTRICTAS:
-" 
-               "- PROHIBIDO usar Markdown o backticks (```).
-" 
-               "- PROHIBIDO explicar el comando.
-" 
-               "- PROHIBIDO saludar o dar contexto.
-" 
-               "- Si el usuario pide crear un archivo, usa: cat << 'EOF' > archivo ... EOF
-" 
-               "EJEMPLO:
-" 
-               "Usuario: busca archivos log mayores a 10mb
-" 
-               "Salida: find . -name '*.log' -size +10M"
-    elif mode == "qcode":
-        return f"{profile_text}
-Eres qcode, un generador de código puro. TU ÚNICA SALIDA DEBE SER EL CÓDIGO FUENTE.
-" 
-               "REGLAS:
-" 
-               "- PROHIBIDO usar Markdown o backticks (```).
-" 
-               "- PROHIBIDO explicar el código o saludar.
-" 
-               "- Empieza directamente con la primera línea de código.
-" 
-               "EJEMPLO:
-" 
-               "Usuario: funcion python para leer json
-" 
-               "Salida: import json
-def read_json(path):
-    with open(path) as f: return json.load(f)"
-    else:
-        return f"{profile_text}
-Respuesta técnica directa, máximo 2 párrafos."
-
-def query_llm(prompt, mode="q"):
-    start_t = time.perf_counter()
-    
-    stop_event = threading.Event()
-    anim_thread = threading.Thread(target=QIAVisuals.animate_logo, args=(stop_event, mode))
-    anim_thread.start()
-    
-    try:
-        QIABackend.ensure()
-    except Exception as e:
-        stop_event.set()
-        anim_thread.join()
-        print(QIAVisuals.c(f"
-Error iniciando backend: {e}", C_RED))
-        sys.exit(1)
-    
-    # Registrar actividad
-    ACTIVITY_FILE.write_text(str(time.time()))
-    
-    system = get_system_prompt(mode)
-    payload = {
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt}
-        ],
-        "stream": True,
-        "temperature": 0.01 if mode == "qdo" else 0.2 if mode == "qcode" else 0.6
-    }
-    
-    req = urllib.request.Request(
-        f"{BACKEND_URL}/v1/chat/completions",
-        data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"}
-    )
-    
-    full_response = ""
-    first_token = True
-    is_filtering = (mode in ("qdo", "qcode"))
-    display_buffer = ""
-    
-    try:
-        with urllib.request.urlopen(req) as response:
-            for line in response:
-                line = line.decode().strip()
-                if not line or line == "data: [DONE]": continue
-                if line.startswith("data: "):
-                    try:
-                        data = json.loads(line[6:])
-                        token = data["choices"][0]["delta"].get("content", "")
-                    except: continue
-
-                    if token:
-                        if first_token:
-                            stop_event.set()
-                            anim_thread.join()
-                            
-                            label = "Comando Propuesto:" if mode == "qdo" else "Código Generado:" if mode == "qcode" else ""
-                            if label:
-                                sys.stdout.write(f"{QIAVisuals.c(label, C_YELLOW if mode == 'qdo' else C_LIME)}
-")
-                            sys.stdout.flush()
-                            first_token = False
-                        
-                        full_response += token
-                        
-                        if is_filtering:
-                            display_buffer += token
-                            # Detectar valla inicial markdown
-                            if "```" in display_buffer:
-                                if "
-" in display_buffer:
-                                    remaining = display_buffer.split("
-", 1)[1]
-                                    if remaining: sys.stdout.write(remaining)
-                                    display_buffer = ""
-                                    is_filtering = False
-                                continue
-                            elif len(display_buffer) > 20:
-                                sys.stdout.write(display_buffer)
-                                display_buffer = ""
-                                is_filtering = False
-                        else:
-                            clean_token = token.replace("```", "").replace("`", "")
-                            if mode == "qdo": clean_token = clean_token.replace("$ ", "")
-                            sys.stdout.write(clean_token)
-                        
-                        sys.stdout.flush()
-    except Exception as e:
-        stop_event.set()
-        anim_thread.join()
-        print(f"
-Error de comunicación: {e}")
-        sys.exit(1)
-        
-    if display_buffer and is_filtering:
-        sys.stdout.write(display_buffer)
-        sys.stdout.flush()
-
-    elapsed = time.perf_counter() - start_t
-    return full_response.strip(), elapsed
+        subprocess.Popen([sys.executable, "-c", watcher_code, "qia_watcher"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 # --- COMANDOS ---
-
 def cmd_qia_install():
-    print(QIAVisuals.c("
---- INSTALACIÓN QIA v2 ---", C_LIME))
     bin_dir = Path.home() / "bin"
     bin_dir.mkdir(exist_ok=True)
-    
     self_path = Path(__file__).resolve()
-    
-    targets = ["q", "qcode", "qia", "qmodel", "qprofile"]
-    for t in targets:
+    for t in ["q", "qcode", "qia", "qmodel", "qprofile"]:
         t_path = bin_dir / t
         if t_path.exists(): t_path.unlink()
         os.symlink(self_path, t_path)
-        print(f"--{t.ljust(10)}---{QIAVisuals.c('OK', C_LIME)}--")
-    
-    qdo_content = f"#!/usr/bin/env bash
-QIA_INVOKED_AS=qdo python3 {self_path} "$@"
-"
-    qdo_path = bin_dir / "qdo"
-    qdo_path.write_text(qdo_content)
-    qdo_path.chmod(0o755)
-    print(f"--qdo{''.ljust(8)}---{QIAVisuals.c('OK', C_LIME)}--")
-    
-    print(QIAVisuals.c("
---- INSTALACIÓN COMPLETADA ---", C_LIME))
+    qdo = bin_dir / "qdo"
+    qdo.write_text(f"#!/usr/bin/env bash\nQIA_INVOKED_AS=qdo python3 {self_path} \"$@\"\n")
+    qdo.chmod(0o755)
+    print("--- INSTALACIÓN COMPLETADA ---")
 
 def cmd_qia_status():
-    def cmd_qia_status():
-        def get_link(text, url):
-            display = f"{text}\t{url}"
-            return f"\033]8;;{url}\033\\{display}\033]8;;\033\\"
-
-        links = [
-            get_link("🔗 LARLAB", "https://larlab.xyz"),
-            get_link("🔗 GitHub", "https://github.com/0Luchin/qia"),
-            get_link("☕ Support Me!", "https://www.paypal.com/paypalme/0Luchin")
-        ]
-
-        status_data = [
-            f"QIA Version: {VERSION}",
-            f"Backend: {BACKEND_URL} [{'ACTIVO' if QIABackend.is_ready() else 'OFF'}]",
-            f"Modelo: {QIAConfig.get_model()}",
-            f"Timeout: {get_timeout()} min",
-            "",
-            links[0],
-            links[1],
-            links[2]
-        ]
-
-        # Neon Pulse Animation
-        for _ in range(3):
-            for color in [C_LIME, C_ORANGE]:
-                for i, line in enumerate(LOGO_LARGE):
-                    data_line = status_data[i] if i < len(status_data) else ""
-                    sys.stdout.write(f"\r{QIAVisuals.c(line, color)}   {data_line}")
-                sys.stdout.flush()
-                time.sleep(0.2)
-
-        # Final static print
-        for i, line in enumerate(LOGO_LARGE):
-            data_line = status_data[i] if i < len(status_data) else ""
-            print(f"\r{QIAVisuals.c(line, C_LIME)}   {data_line}")
-
-
-def cmd_qia_help():
-    for i, line in enumerate(LOGO_SMALL):
-        prefix = f"{QIAVisuals.c(line, C_LIME)}   "
-        if i == 1: print(f"{prefix}{QIAVisuals.c('QIA v' + VERSION, C_WHITE)} - IA para LARLAB")
-        elif i == 2: print(f"{prefix}{QIAVisuals.c('Asistente técnico especializado.', C_GRAY)}")
-        else: print(prefix)
-    
-    print(f"
-{QIAVisuals.c('MODOS DE USO:', C_LIME)}")
-    print(f"  {QIAVisuals.c('q', C_YELLOW)} "pregunta"      Consultas rápidas (máx. 2 párrafos).")
-    print(f"  {QIAVisuals.c('qdo', C_YELLOW)} "pedido"      Sintetizador Bash (menú interactivo).")
-    print(f"  {QIAVisuals.c('qcode', C_YELLOW)} "pedido"    Generador de código (menú interactivo).")
-    
-    print(f"
-{QIAVisuals.c('SUBCOMANDOS QIA:', C_LIME)}")
-    print(f"  {QIAVisuals.c('qia status', C_YELLOW)}        Estado del backend, modelo y perfil.")
-    print(f"  {QIAVisuals.c('qia stop', C_YELLOW)}          Detiene el servidor (llama-server).")
-    print(f"  {QIAVisuals.c('qia install', C_YELLOW)}       Configura accesos en ~/bin.")
-    print(f"  {QIAVisuals.c('qia timeout', C_YELLOW)} <min>  Configura tiempo de inactividad.")
-    print(f"  {QIAVisuals.c('qia help', C_YELLOW)}          Muestra este manual.")
-    
-    print(f"
-{QIAVisuals.c('CONFIGURACIÓN RÁPIDA:', C_LIME)}")
-    print(f"  {QIAVisuals.c('qmodel', C_YELLOW)} <archivo>    Cambia el modelo GGUF.")
-    print(f"  {QIAVisuals.c('qprofile', C_YELLOW)} <nombre>   Cambia el perfil activo.")
-    print()
-
-def cmd_qia_model(args):
-    model_dir = Path.home() / "local-llm" / "models" / "qwen2.5-coder-3b"
-    if not args:
-        print(QIAVisuals.c("
-Modelos disponibles:", C_LIME))
-        current = QIAConfig.get_model()
-        if model_dir.exists():
-            for f in model_dir.glob("*.gguf"):
-                star = "*" if f.name == current else " "
-                print(f" {QIAVisuals.c(star, C_YELLOW)} {f.name}")
-        print(f"
-Uso: qmodel <nombre_archivo>")
-        return
-
-    new_model = args[0]
-    if (model_dir / new_model).exists():
-        QIAConfig.set_model(new_model)
-        print(QIAVisuals.c(f"✔ Modelo cambiado a: {new_model}", C_LIME))
-        print(QIAVisuals.c("Nota: Reinicia con 'qia stop' para aplicar en la próxima consulta.", C_GRAY))
-    else:
-        print(QIAVisuals.c(f"Error: El modelo {new_model} no existe en la carpeta de modelos.", C_RED))
-
-def cmd_qia_profile(args):
-    if not args:
-        print(QIAVisuals.c("
-Perfiles disponibles:", C_LIME))
-        current = QIAConfig.get_profile()
-        for p in PROFILES:
-            star = "*" if p == current else " "
-            print(f" {QIAVisuals.c(star, C_YELLOW)} {p.ljust(10)} {QIAVisuals.c(PROFILES[p], C_GRAY)}")
-        print(f"
-Uso: qprofile <nombre>")
-        return
-
-    new_profile = args[0]
-    if new_profile in PROFILES:
-        PROFILE_FILE.write_text(new_profile + "
-")
-        print(QIAVisuals.c(f"✔ Perfil cambiado a: {new_profile}", C_LIME))
-    else:
-        print(QIAVisuals.c(f"Error: Perfil '{new_profile}' no reconocido.", C_RED))
-
-def cmd_qia_timeout(args):
-    if not args:
-        print(QIAVisuals.c(f"
-Timeout actual: {get_timeout()} minutos", C_LIME))
-        print(f"Uso: qia timeout <minutos>")
-        return
-    
-    try:
-        val = int(args[0])
-        if val < 1: raise ValueError
-        TIMEOUT_FILE.write_text(str(val) + "
-")
-        print(QIAVisuals.c(f"✔ Timeout cambiado a: {val} minutos", C_LIME))
-    except:
-        print(QIAVisuals.c("Error: Debes ingresar un número entero mayor a 0.", C_RED))
-
-def handle_qdo(prompt):
-    while True:
-        answer, elapsed = query_llm(prompt, mode="qdo")
-        
-        # Extracción robusta del comando
-        # 1. Intentar sacar contenido de bloques markdown si el modelo ignoró la instrucción
-        blocks = re.findall(r"```(?:bash|sh)?
-?(.*?)```", answer, re.DOTALL)
-        if blocks:
-            clean_cmd = blocks[0].strip()
-        else:
-            # 2. Si no hay bloques, limpiar texto conversacional típico
-            lines = answer.split("
-")
-            # Filtrar líneas que parecen explicaciones (empiezan con mayúscula y terminan en punto, o son muy largas)
-            cmd_lines = []
-            for line in lines:
-                l = line.strip()
-                if not l: continue
-                # Si la línea empieza con un prompt común, lo quitamos
-                l = re.sub(r"^[\$#>\s]+", "", l)
-                # Si parece un comando (no termina en punto y no empieza con verbos explicativos)
-                if not (re.match(r"^[A-Z][a-z]+", l) and l.endswith(".")):
-                    cmd_lines.append(l)
-            
-            clean_cmd = "
-".join(cmd_lines).strip()
-            # Si después de filtrar no queda nada, volvemos al original por si acaso
-            if not clean_cmd: clean_cmd = answer.strip()
-
-        # Limpieza final de caracteres extra
-        clean_cmd = clean_cmd.replace("`", "").strip()
-        
-        if not clean_cmd:
-            print(QIAVisuals.c("
-Error: El modelo no generó un comando válido.", C_RED))
-            break
-
-        print(f"
-{QIAVisuals.c(f'# Tiempo: {elapsed:.2f}s', C_GRAY)}")
-        
-        while True:
-            choice = input(f"
-{QIAVisuals.c('[E]', C_LIME)}jecutar / {QIAVisuals.c('[R]', C_YELLOW)}efinar / {QIAVisuals.c('[X]', C_BLUE)}plicar / {QIAVisuals.c('[C]', C_RED)}ancelar? ").lower()
-            
-            if choice == 'e':
-                print(f"
-$ {clean_cmd}")
-                subprocess.run(clean_cmd, shell=True)
-                return
-            elif choice == 'r':
-                refinement = input("¿Qué quieres ajustar?: ")
-                prompt = f"Comando anterior: {clean_cmd}
-Ajuste pedido: {refinement}
-Genera el nuevo comando bash plano."
-                break
-            elif choice == 'x':
-                print(f"
-{QIAVisuals.c('Explicación:', C_BLUE)}")
-                query_llm(f"Explica brevemente qué hace este comando bash:
-{clean_cmd}", mode="q")
-                print()
-            else:
-                print(QIAVisuals.c("Cancelado.", C_RED))
-                return
-
-def handle_qcode(prompt):
-    while True:
-        answer, elapsed = query_llm(prompt, mode="qcode")
-        
-        # Extracción robusta de código
-        blocks = re.findall(r"```[a-zA-Z]*
-?(.*?)```", answer, re.DOTALL)
-        clean_code = blocks[0].strip() if blocks else answer.strip()
-        
-        if not clean_code:
-            print(QIAVisuals.c("
-Error: No se generó código.", C_RED))
-            break
-
-        print(f"
-{QIAVisuals.c(f'# Tiempo: {elapsed:.2f}s', C_GRAY)}")
-        
-        while True:
-            choice = input(f"
-{QIAVisuals.c('[G]', C_LIME)}uardar / {QIAVisuals.c('[R]', C_YELLOW)}efinar / {QIAVisuals.c('[X]', C_BLUE)}plicar / {QIAVisuals.c('[C]', C_RED)}ancelar? ").lower()
-            
-            if choice == 'g':
-                # Intentar detectar extensión sin imprimirla directamente
-                ext_prompt = f"Basado en este código, responde SOLO la extensión de archivo adecuada (ej: .py, .js, .sh):
-{clean_code[:200]}"
-                # Usamos una versión silenciosa o extraemos el valor sin que query_llm ensucie la pantalla si es posible
-                # En este script, query_llm imprime el label. Para la extensión, queremos algo discreto.
-                
-                # Para evitar que query_llm imprima "Comando Propuesto" etc, usamos modo "q" que es genérico
-                ext, _ = query_llm(ext_prompt, mode="q")
-                ext = ext.strip().lower()
-                if not ext.startswith("."): ext = "." + ext
-                
-                print(f"
-{QIAVisuals.c('Guardar archivo:', C_LIME)}")
-                path_input = input(f"Nombre o ruta del archivo (sugerido: código{ext}): ") or f"codigo{ext}"
-                
-                full_path = Path(path_input).expanduser().resolve()
-                
-                try:
-                    # Crear directorios si no existen
-                    full_path.parent.mkdir(parents=True, exist_ok=True)
-                    full_path.write_text(clean_code)
-                    print(QIAVisuals.c(f"
-✔ Archivo guardado con éxito en:", C_LIME))
-                    print(QIAVisuals.c(f"  {full_path}", C_WHITE))
-                except Exception as e:
-                    print(QIAVisuals.c(f"Error al guardar: {e}", C_RED))
-                return
-                
-            elif choice == 'r':
-                refinement = input("¿Qué quieres ajustar del código?: ")
-                prompt = f"Código anterior:
-{clean_code}
-Ajuste pedido: {refinement}
-Genera el nuevo código fuente completo."
-                break
-                
-            elif choice == 'x':
-                print(f"
-{QIAVisuals.c('Modo Explicación:', C_BLUE)}")
-                print("El código puede ser largo. ¿Qué parte te gustaría entender mejor? (ej: 'el bucle', 'la función X', 'todo')")
-                topic = input("> ")
-                explain_prompt = f"Sobre este código:
-{clean_code}
-
-Explica específicamente: {topic}"
-                query_llm(explain_prompt, mode="q")
-                print()
-                
-            else:
-                print(QIAVisuals.c("Cancelado.", C_RED))
-                return
+    def get_link(text, url): return f"\033]8;;{url}\033\\{text}\t{url}\033]8;;\033\\"
+    links = [get_link("🔗 LARLAB", "https://larlab.xyz"), get_link("🔗 GitHub", "https://github.com/0Luchin/qia"), get_link("☕ Support Me!", "https://www.paypal.com/paypalme/0Luchin")]
+    print(f"Backend: [{'ACTIVO' if QIABackend.is_ready() else 'OFF'}]")
+    print(f"Timeout: {get_timeout()} min")
+    for l in links: print(l)
 
 def main():
-    QIAConfig.ensure()
+    if not CONFIG_DIR.exists(): CONFIG_DIR.mkdir(parents=True)
+    if not ACTIVITY_FILE.exists(): ACTIVITY_FILE.write_text(str(time.time()))
     
-    invoked = os.environ.get("QIA_INVOKED_AS") or Path(sys.argv[0]).name
     args = sys.argv[1:]
+    invoked = os.environ.get("QIA_INVOKED_AS") or Path(sys.argv[0]).name
     
     if invoked == "qia":
         sub = args[0] if args else "help"
         if sub == "install": cmd_qia_install()
         elif sub == "status": cmd_qia_status()
         elif sub == "stop": QIABackend.stop()
-        elif sub == "help": cmd_qia_help()
-        elif sub == "timeout": cmd_qia_timeout(args[1:])
-        else: print(f"Subcomando '{sub}' no reconocido. Usa 'qia help'.")
+        elif sub == "timeout":
+            if not args[1:]: print(f"Timeout: {get_timeout()} min"); return
+            TIMEOUT_FILE.write_text(str(int(args[1])) + "\n")
+            print(f"✔ Timeout: {args[1]} min")
         return
-
-    if invoked == "qmodel":
-        cmd_qia_model(args)
-        return
-    
-    if invoked == "qprofile":
-        cmd_qia_profile(args)
-        return
-
-    if not args:
-        if invoked in ("q", "qdo", "qcode"):
-            print(f"Uso: {invoked} "tu pedido o pregunta"")
-        else:
-            cmd_qia_help()
-        return
-
-    prompt = " ".join(args)
-    
-    if invoked == "qdo":
-        handle_qdo(prompt)
-    elif invoked == "qcode":
-        handle_qcode(prompt)
-    else: # modo q
-        answer, elapsed = query_llm(prompt, mode="q")
-        print(f"
-
-{QIAVisuals.c(f'# Tiempo: {elapsed:.2f}s', C_GRAY)}")
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        # Restaurar cursor y limpiar línea actual
-\033[K")
-        sys.stderr.flush()
-        sys.exit(0)
+    main()
