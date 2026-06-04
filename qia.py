@@ -37,16 +37,37 @@ def get_port():
 
 BACKEND_URL = f"http://127.0.0.1:{get_port()}"
 
-# ANSI Colors
-C_RESET = "\033[0m"
-C_LIME = "\033[38;5;118m"
-C_ORANGE = "\033[38;5;215m"
-C_WHITE = "\033[97m"
-C_GRAY = "\033[90m"
-C_YELLOW = "\033[93m"
-C_RED = "\033[31m"
-C_CYAN = "\033[36m"
-C_BLUE = "\033[34m"
+# ANSI Colors (Dynamic wrappers)
+def C_RESET(): return "\033[0m"
+def C_WHITE(): return "\033[97m"
+def C_GRAY(): return "\033[90m"
+def C_YELLOW(): return "\033[93m"
+def C_RED(): return "\033[31m"
+def C_CYAN_STATIC(): return "\033[36m"
+def C_BLUE(): return "\033[34m"
+
+# Paletas de colores
+PALETTES = {
+    "1": {"primary": "\033[38;5;46m", "secondary": "\033[38;5;226m", "tertiary": "\033[38;5;208m"}, # Neon Green/Yellow/Orange
+    "2": {"primary": "\033[38;5;39m", "secondary": "\033[38;5;208m", "tertiary": "\033[38;5;226m"}, # Blue/Orange/Yellow
+    "3": {"primary": "\033[38;5;201m", "secondary": "\033[38;5;82m", "tertiary": "\033[38;5;226m"}, # Magenta/Lime/Yellow
+    "4": {"primary": "\033[38;5;160m", "secondary": "\033[38;5;208m", "tertiary": "\033[38;5;190m"}, # Red/Orange/Yellow
+    "5": {"primary": "\033[38;5;129m", "secondary": "\033[38;5;201m", "tertiary": "\033[38;5;87m"}, # Purple/Magenta/Cyan
+}
+
+def get_c(type):
+    try:
+        palette_id = QIAConfig.get_color_palette()
+        return PALETTES.get(palette_id, PALETTES["1"]).get(type, "\033[38;5;118m")
+    except NameError:
+        return PALETTES["1"].get(type, "\033[38;5;118m")
+
+# Helpers para colores
+def C_LIME(): return get_c("primary")
+def C_ORANGE(): return get_c("secondary")
+def C_CYAN(): return get_c("tertiary")
+
+
 
 # --- LOGOS ---
 LOGO = r"""
@@ -71,8 +92,19 @@ class QIAConfig:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         if not MODEL_FILE.exists(): MODEL_FILE.write_text(DEFAULT_MODEL + "\n")
         if not PROFILE_FILE.exists(): PROFILE_FILE.write_text(DEFAULT_PROFILE + "\n")
-        if not COLOR_FILE.exists(): COLOR_FILE.write_text("on\n")
+        if not COLOR_FILE.exists(): COLOR_FILE.write_text("1\n")
         if not ACTIVITY_FILE.exists(): ACTIVITY_FILE.write_text(str(time.time()))
+
+    @staticmethod
+    def get_color_palette():
+        QIAConfig.ensure()
+        try: return COLOR_FILE.read_text().strip()
+        except: return "1"
+
+    @staticmethod
+    def set_color_palette(palette_id):
+        COLOR_FILE.write_text(palette_id + "\n")
+
 
     @staticmethod
     def get_model():
@@ -96,7 +128,7 @@ class QIAVisuals:
     @staticmethod
     def c(text, color):
         if not QIAConfig.color_enabled(): return str(text)
-        return f"{color}{text}{C_RESET}"
+        return f"{color}{text}{C_RESET()}"
 
     @staticmethod
     def animate_logo(stop_event, mode="q"):
@@ -111,10 +143,17 @@ class QIAVisuals:
                 for line in logo:
                     rendered_line = ""
                     for ch in line:
-                        if ch == "@" and random.random() < 0.1: rendered_line += QIAVisuals.c("@", C_ORANGE)
-                        else: rendered_line += QIAVisuals.c(ch, C_LIME)
+                        if ch == "@":
+                            r = random.random()
+                            if r < 0.15: rendered_line += QIAVisuals.c("@", get_c("primary"))
+                            elif r < 0.30: rendered_line += QIAVisuals.c("@", get_c("secondary"))
+                            elif r < 0.45: rendered_line += QIAVisuals.c("@", get_c("tertiary"))
+                            else: rendered_line += QIAVisuals.c("@", get_c("primary"))
+                        else: rendered_line += QIAVisuals.c(ch, get_c("primary"))
                     output.append("\033[2K" + rendered_line)
-                timer = QIAVisuals.c(f"{elapsed:04.1f}s", C_YELLOW).rjust(20)
+                # Aplicar rjust al texto plano antes de colorear para alinear correctamente
+                timer_text = f"{elapsed:04.1f}s".rjust(10)
+                timer = QIAVisuals.c(timer_text, C_YELLOW())
                 output.append("\033[2K" + timer)
                 sys.stderr.write("\n".join(output) + "\n")
                 sys.stderr.write(f"\033[{block_lines}F")
@@ -122,6 +161,52 @@ class QIAVisuals:
                 time.sleep(0.1)
         finally:
             sys.stderr.write("\033[J\033[?25h")
+            sys.stderr.flush()
+
+    @staticmethod
+    def animate_logo_big(stop_event, text_list):
+        # text_list es una lista que puede ser actualizada dinámicamente
+        logo_lines = [line for line in LOGO.split('\n') if line.strip()]
+        
+        # Ocultar cursor
+        sys.stderr.write("\033[?25l")
+        
+        try:
+            while not stop_event.is_set():
+                text_lines = text_list  # Leer la lista actual
+                max_height = max(len(logo_lines), len(text_lines))
+                # Dibujar frame completo
+                frame = []
+                for i in range(max_height):
+                    logo_part = ""
+                    if i < len(logo_lines):
+                        line = logo_lines[i]
+                        for ch in line:
+                            if ch == "@":
+                                r = random.random()
+                                if r < 0.15: logo_part += QIAVisuals.c("@", get_c("primary"))
+                                elif r < 0.30: logo_part += QIAVisuals.c("@", get_c("secondary"))
+                                elif r < 0.45: logo_part += QIAVisuals.c("@", get_c("tertiary"))
+                                else: logo_part += QIAVisuals.c("@", get_c("primary"))
+                            else: logo_part += ch
+                    else:
+                        logo_part = " " * 18
+                    
+                    text_part = text_lines[i] if i < len(text_lines) else ""
+                    frame.append(f"\033[2K\r{logo_part}  {text_part}")
+                
+                # Unir con \n pero sin añadir uno al final que provoque scroll
+                sys.stderr.write("\n".join(frame))
+                # Subir el cursor `max_height - 1` líneas para volver al principio del logo
+                sys.stderr.write(f"\033[{max_height - 1}A\r")
+                sys.stderr.flush()
+                time.sleep(0.1)
+                
+            # Limpiar bloque moviéndose al final del mismo
+            sys.stderr.write(f"\033[{max_height}B\n")
+            
+        finally:
+            sys.stderr.write("\033[?25h")
             sys.stderr.flush()
 
 class QIABackend:
@@ -168,14 +253,14 @@ while True:
         model_path = Path.home() / "local-llm" / "models" / "qwen2.5-coder-3b" / model
 
         if not server_bin.exists():
-            print(QIAVisuals.c(f"Error: llama-server no encontrado en {server_bin}", C_RED))
+            print(QIAVisuals.c(f"Error: llama-server no encontrado en {server_bin}", C_RED()))
             sys.exit(1)
         
         if not model_path.exists():
             default_path = Path.home() / "local-llm" / "models" / "qwen2.5-coder-3b" / "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
             if default_path.exists(): model_path = default_path
             else:
-                print(QIAVisuals.c(f"Error: Modelo no encontrado en {model_path}", C_RED))
+                print(QIAVisuals.c(f"Error: Modelo no encontrado en {model_path}", C_RED()))
                 sys.exit(1)
 
         log_file = open(LOG_DIR / "llama-server.log", "a")
@@ -216,7 +301,7 @@ def query_llm(prompt, mode="q"):
     try: QIABackend.ensure()
     except Exception as e:
         stop_event.set(); anim_thread.join()
-        print(QIAVisuals.c(f"\nError iniciando backend: {e}", C_RED)); sys.exit(1)
+        print(QIAVisuals.c(f"\nError iniciando backend: {e}", C_RED())); sys.exit(1)
     
     payload = {"messages": [{"role": "system", "content": get_system_prompt(mode)}, {"role": "user", "content": prompt}], "stream": True, "temperature": 0.01 if mode == "qdo" else 0.2 if mode == "qcode" else 0.6}
     req = urllib.request.Request(f"{BACKEND_URL}/v1/chat/completions", data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
@@ -240,7 +325,7 @@ def query_llm(prompt, mode="q"):
                         if first_token:
                             stop_event.set(); anim_thread.join()
                             label = "Comando Propuesto:" if mode == "qdo" else "Código Generado:" if mode == "qcode" else ""
-                            if label: sys.stdout.write(f"{QIAVisuals.c(label, C_YELLOW if mode == 'qdo' else C_LIME)}\n")
+                            if label: sys.stdout.write(f"{QIAVisuals.c(label, C_YELLOW() if mode == 'qdo' else C_LIME())}\n")
                             sys.stdout.flush(); first_token = False
                         full_response += token
                         if is_filtering:
@@ -267,39 +352,138 @@ def query_llm(prompt, mode="q"):
     return full_response.strip(), time.perf_counter() - start_t
 
 # --- COMANDOS ---
-def cmd_qia_install(): subprocess.run(["scripts/install.sh"])
+def cmd_qia_install():
+    stop_event = threading.Event()
+    status_text = ["Iniciando instalación..."]
+    
+    anim_thread = threading.Thread(target=QIAVisuals.animate_logo_big, args=(stop_event, status_text))
+    anim_thread.start()
+    
+    # Simulación de pasos de instalación
+    time.sleep(1)
+    status_text[0] = "Configurando entorno..."
+    time.sleep(1)
+    status_text[0] = "Instalando dependencias..."
+    time.sleep(1)
+    status_text[0] = "✔ Instalación completada. Presione Enter para continuar..."
+    
+    # Esperar entrada sin detener el hilo de animación inmediatamente
+    input()
+    
+    stop_event.set()
+    anim_thread.join()
+
+def cmd_qia_doctor():
+    stop_event = threading.Event()
+    status_text = ["Ejecutando diagnóstico..."]
+    
+    anim_thread = threading.Thread(target=QIAVisuals.animate_logo_big, args=(stop_event, status_text))
+    anim_thread.start()
+    
+    # Simulación de pasos de doctor
+    time.sleep(1)
+    status_text[0] = "Verificando backend..."
+    time.sleep(1)
+    status_text[0] = "Verificando modelos..."
+    time.sleep(1)
+    status_text[0] = "✔ Diagnóstico finalizado. Presione Enter para continuar..."
+    
+    # Esperar entrada sin detener el hilo de animación inmediatamente
+    input()
+    
+    stop_event.set()
+    anim_thread.join()
+
 def cmd_qia_status():
-    print(f"{LOGO}\nQIA Version: {VERSION}\nBackend: {BACKEND_URL} [{'ACTIVO' if QIABackend.is_ready() else 'OFF'}]\nModelo: {QIAConfig.get_model()}\nPerfil: {QIAConfig.get_profile()}")
+    status_text = [
+        f"QIA Version: {VERSION}",
+        f"Backend: {BACKEND_URL} [{'ACTIVO' if QIABackend.is_ready() else 'OFF'}]",
+        f"Modelo: {QIAConfig.get_model()}",
+        f"Perfil: {QIAConfig.get_profile()}",
+        "Presione Enter para salir..."
+    ]
+    stop_event = threading.Event()
+    anim_thread = threading.Thread(target=QIAVisuals.animate_logo_big, args=(stop_event, status_text))
+    anim_thread.start()
+    input()
+    stop_event.set()
+    anim_thread.join()
+def colored_text(text):
+    """Genera texto con colores aleatorios basados en la paleta actual."""
+    result = ""
+    for char in text:
+        if char == " ":
+            result += char
+            continue
+        # Elegir color aleatorio de la paleta
+        color = random.choice([get_c("primary"), get_c("secondary"), get_c("tertiary")])
+        result += QIAVisuals.c(char, color)
+    return result
+
 def cmd_qia_help():
-    print(f"{LOGO}\nComandos: qia install, status, stop, timeout, help.\nHerramientas: q, qdo, qcode, qmodel, qprofile.")
+    # Logo estático coloreado y título a la derecha
+    logo = LOGO_SMALL
+    title = "QIA HELP"
+    
+    for i in range(len(logo)):
+        # Colorear logo con color primario
+        rendered_logo = ""
+        for ch in logo[i]:
+            if ch == "@": rendered_logo += QIAVisuals.c("@", get_c("primary"))
+            else: rendered_logo += " "
+        
+        # Título centrado verticalmente a la derecha (línea 1 y 2)
+        side_text = title if i == 1 else ("==========" if i == 2 else "")
+        print(f"{rendered_logo}    {QIAVisuals.c(side_text, C_WHITE())}")
+    
+    cmds = {
+        "install": "Reinstala QIA.",
+        "doctor": "Ejecuta diagnóstico del sistema.",
+        "status": "Muestra estado de QIA.",
+        "color <1-5>": "Cambia la paleta de colores.",
+        "stop": "Detiene el backend.",
+        "timeout": "Configura tiempo de espera.",
+        "help": "Muestra este menú.",
+        "q <prompt>": "Consulta general al LLM.",
+        "qdo <prompt>": "Ejecuta comandos bash.",
+        "qcode <prompt>": "Genera o analiza código.",
+        "qmodel <name>": "Cambia el modelo.",
+        "qprofile <name>": "Cambia el perfil."
+    }
+    
+    print(f"\n{colored_text('Comandos:')}")
+    for cmd, desc in cmds.items():
+        # Comando en blanco brillante, descripción aleatoria
+        print(f"  {QIAVisuals.c(cmd.ljust(15), C_WHITE())} {colored_text(desc)}")
+    print()
 def cmd_qia_model(args):
     model_dir = Path.home() / "local-llm" / "models" / "qwen2.5-coder-3b"
     if not args:
-        print(QIAVisuals.c("\nModelos disponibles:", C_LIME))
+        print(QIAVisuals.c("\nModelos disponibles:", C_LIME()))
         current = QIAConfig.get_model()
         if model_dir.exists():
             for f in model_dir.glob("*.gguf"):
-                star = "*" if f.name == current else " "; print(f" {QIAVisuals.c(star, C_YELLOW)} {f.name}")
+                star = "*" if f.name == current else " "; print(f" {QIAVisuals.c(star, C_YELLOW())} {f.name}")
         print(f"\nUso: qmodel <nombre_archivo>")
         return
     new_model = args[0]
     if (model_dir / new_model).exists():
         QIAConfig.set_model(new_model)
-        print(QIAVisuals.c(f"✔ Modelo cambiado a: {new_model}", C_LIME))
-    else: print(QIAVisuals.c(f"Error: Modelo no existe.", C_RED))
+        print(QIAVisuals.c(f"✔ Modelo cambiado a: {new_model}", C_LIME()))
+    else: print(QIAVisuals.c(f"Error: Modelo no existe.", C_RED()))
 def cmd_qia_profile(args):
     if not args:
-        print(QIAVisuals.c("\nPerfiles disponibles:", C_LIME))
+        print(QIAVisuals.c("\nPerfiles disponibles:", C_LIME()))
         current = QIAConfig.get_profile()
         for p in PROFILES:
-            star = "*" if p == current else " "; print(f" {QIAVisuals.c(star, C_YELLOW)} {p.ljust(10)} {QIAVisuals.c(PROFILES[p], C_GRAY)}")
+            star = "*" if p == current else " "; print(f" {QIAVisuals.c(star, C_YELLOW())} {p.ljust(10)} {QIAVisuals.c(PROFILES[p], C_GRAY())}")
         print(f"\nUso: qprofile <nombre>")
         return
     new_profile = args[0]
     if new_profile in PROFILES:
         PROFILE_FILE.write_text(new_profile + "\n")
-        print(QIAVisuals.c(f"✔ Perfil cambiado a: {new_profile}", C_LIME))
-    else: print(QIAVisuals.c(f"Error: Perfil no reconocido.", C_RED))
+        print(QIAVisuals.c(f"✔ Perfil cambiado a: {new_profile}", C_LIME()))
+    else: print(QIAVisuals.c(f"Error: Perfil no reconocido.", C_RED()))
 
 def handle_qdo(prompt):
     while True:
@@ -307,13 +491,13 @@ def handle_qdo(prompt):
         blocks = re.findall(r"```(?:bash|sh)?\n?(.*?)```", answer, re.DOTALL)
         clean_cmd = blocks[0].strip() if blocks else answer.strip()
         clean_cmd = clean_cmd.replace("`", "").strip()
-        print(f"\n{QIAVisuals.c(f'# Tiempo: {elapsed:.2f}s', C_GRAY)}")
+        print(f"\n{QIAVisuals.c(f'# Tiempo: {elapsed:.2f}s', C_GRAY())}")
         print("-" * 30) # Separación visual
-        choice = input(f"\n{QIAVisuals.c('[E]', C_LIME)}jecutar / {QIAVisuals.c('[R]', C_YELLOW)}efinar / {QIAVisuals.c('[X]', C_BLUE)}plicar / {QIAVisuals.c('[C]', C_RED)}ancelar? ").lower()
+        choice = input(f"\n{QIAVisuals.c('[E]', C_LIME())}jecutar / {QIAVisuals.c('[R]', C_YELLOW())}efinar / {QIAVisuals.c('[X]', C_BLUE())}plicar / {QIAVisuals.c('[C]', C_RED())}ancelar? ").lower()
         if choice == 'e': subprocess.run(clean_cmd, shell=True); return
         elif choice == 'r': prompt = f"Comando anterior: {clean_cmd}\nAjuste pedido: {input('Ajuste: ')}\nGenera comando bash plano."; continue
         elif choice == 'x':
-            print(f"\n{QIAVisuals.c('Explicación:', C_BLUE)}")
+            print(f"\n{QIAVisuals.c('Explicación:', C_BLUE())}")
             # We call with mode="q" explicitly to avoid the "Comando Propuesto" label
             query_llm(f"Explica esto: {clean_cmd}", mode="q")
             continue
@@ -324,25 +508,35 @@ def handle_qcode(prompt):
         answer, elapsed = query_llm(prompt, mode="qcode")
         blocks = re.findall(r"```[a-zA-Z]*\n?(.*?)```", answer, re.DOTALL)
         clean_code = blocks[0].strip() if blocks else answer.strip()
-        print(f"\n{QIAVisuals.c(f'# Tiempo: {elapsed:.2f}s', C_GRAY)}")
+        print(f"\n{QIAVisuals.c(f'# Tiempo: {elapsed:.2f}s', C_GRAY())}")
         print("-" * 30) # Separación visual
-        choice = input(f"\n{QIAVisuals.c('[G]', C_LIME)}uardar / {QIAVisuals.c('[R]', C_YELLOW)}efinar / {QIAVisuals.c('[X]', C_BLUE)}plicar / {QIAVisuals.c('[C]', C_RED)}ancelar? ").lower()
+        choice = input(f"\n{QIAVisuals.c('[G]', C_LIME())}uardar / {QIAVisuals.c('[R]', C_YELLOW())}efinar / {QIAVisuals.c('[X]', C_BLUE())}plicar / {QIAVisuals.c('[C]', C_RED())}ancelar? ").lower()
         if choice == 'g':
             path = input("Ruta (ej: codigo.py): ") or "codigo.py"; Path(path).write_text(clean_code); print("✔ Guardado."); return
         elif choice == 'r': prompt = f"Código:\n{clean_code}\nAjuste: {input('Ajuste: ')}\nGenera código nuevo."; continue
         elif choice == 'x': query_llm(f"Explica este código: {clean_code}", mode="q"); continue
         else: return
 
+def cmd_qia_color(args):
+    if not args or args[0] not in PALETTES:
+        print(QIAVisuals.c("\nUso: qia color <1-5>", C_YELLOW()))
+        return
+
+    QIAConfig.set_color_palette(args[0])
+    print(QIAVisuals.c(f"\n✔ Paleta de colores cambiada a: {args[0]}", C_LIME()))
+
 # --- MAIN ---
 def main():
     QIAConfig.ensure()
     invoked = os.environ.get("QIA_INVOKED_AS") or Path(sys.argv[0]).name
     args = sys.argv[1:]
-    
+
     if invoked == "qia":
         sub = args[0] if args else "help"
         if sub == "install": cmd_qia_install()
+        elif sub == "doctor": cmd_qia_doctor()
         elif sub == "status": cmd_qia_status()
+        elif sub == "color": cmd_qia_color(args[1:])
         elif sub == "stop": QIABackend.stop()
         elif sub == "help": cmd_qia_help()
     elif invoked == "qmodel": cmd_qia_model(args)
