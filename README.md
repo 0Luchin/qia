@@ -8,12 +8,18 @@
 
 QIA turns your terminal into an expert assistant:
 
-*   **`q`**: Rapid technical queries. Direct and precise answers.
-    *   *Example:* `q "How do I check open ports in Linux?"`
-*   **`qdo`**: Bash command synthesizer. Includes an interactive menu to **execute**, **refine**, or **explain** commands.
-    *   *Example:* `qdo "Find all files larger than 100MB in /var/log"`
-*   **`qcode`**: Source code generator. Includes tools to **save** files, **refine**, or **explain** code.
-    *   *Example:* `qcode "Create a Python script to scrape a website using BeautifulSoup"`
+*   **`q`**: Rapid technical queries.
+*   **`qdo`**: Bash command synthesizer.
+*   **`qcode`**: Source code generator.
+*   **`qia install`**: Reinstall/Update QIA.
+*   **`qia doctor`**: Run system diagnostics.
+*   **`qia status`**: Show QIA status.
+*   **`qia color <1-5>`**: Change color palette.
+*   **`qia model <name>`**: Change model.
+*   **`qia profile <name>`**: Change profile.
+*   **`qia update`**: Update to latest version.
+*   **`qia stop`**: Stop backend.
+*   **`qia help`**: Show this menu.
 
 ---
 

@@ -324,8 +324,6 @@ def query_llm(prompt, mode="q"):
                     if token:
                         if first_token:
                             stop_event.set(); anim_thread.join()
-                            label = "Comando Propuesto:" if mode == "qdo" else "Código Generado:" if mode == "qcode" else ""
-                            if label: sys.stdout.write(f"{QIAVisuals.c(label, C_YELLOW() if mode == 'qdo' else C_LIME())}\n")
                             sys.stdout.flush(); first_token = False
                         full_response += token
                         if is_filtering:
@@ -441,14 +439,15 @@ def cmd_qia_help():
         "doctor": "Ejecuta diagnóstico del sistema.",
         "status": "Muestra estado de QIA.",
         "color <1-5>": "Cambia la paleta de colores.",
+        "update": "Actualiza QIA a la última versión.",
         "stop": "Detiene el backend.",
         "timeout": "Configura tiempo de espera.",
         "help": "Muestra este menú.",
         "q <prompt>": "Consulta general al LLM.",
         "qdo <prompt>": "Ejecuta comandos bash.",
         "qcode <prompt>": "Genera o analiza código.",
-        "qmodel <name>": "Cambia el modelo.",
-        "qprofile <name>": "Cambia el perfil."
+        "qia model <name>": "Cambia el modelo.",
+        "qia profile <name>": "Cambia el perfil."
     }
     
     print(f"\n{colored_text('Comandos:')}")
@@ -486,21 +485,37 @@ def cmd_qia_profile(args):
     else: print(QIAVisuals.c(f"Error: Perfil no reconocido.", C_RED()))
 
 def handle_qdo(prompt):
+    # Generamos el comando inicial
+    answer, elapsed = query_llm(prompt, mode="qdo")
+    blocks = re.findall(r"```(?:bash|sh)?\n?(.*?)```", answer, re.DOTALL)
+    clean_cmd = blocks[0].strip() if blocks else answer.strip()
+    clean_cmd = clean_cmd.replace("`", "").strip()
+    
     while True:
-        answer, elapsed = query_llm(prompt, mode="qdo")
-        blocks = re.findall(r"```(?:bash|sh)?\n?(.*?)```", answer, re.DOTALL)
-        clean_cmd = blocks[0].strip() if blocks else answer.strip()
-        clean_cmd = clean_cmd.replace("`", "").strip()
+        # Mostramos solo el comando
+        print(f"\n{QIAVisuals.c('Comando:', C_LIME())}\n{QIAVisuals.c(clean_cmd, C_WHITE())}")
         print(f"\n{QIAVisuals.c(f'# Tiempo: {elapsed:.2f}s', C_GRAY())}")
-        print("-" * 30) # Separación visual
-        choice = input(f"\n{QIAVisuals.c('[E]', C_LIME())}jecutar / {QIAVisuals.c('[R]', C_YELLOW())}efinar / {QIAVisuals.c('[X]', C_BLUE())}plicar / {QIAVisuals.c('[C]', C_RED())}ancelar? ").lower()
-        if choice == 'e': subprocess.run(clean_cmd, shell=True); return
-        elif choice == 'r': prompt = f"Comando anterior: {clean_cmd}\nAjuste pedido: {input('Ajuste: ')}\nGenera comando bash plano."; continue
+        
+        # Opciones
+        choice = input(f"\n{QIAVisuals.c('[E]jecutar', C_LIME())} / {QIAVisuals.c('[R]efinar', C_YELLOW())} / {QIAVisuals.c('[X]plicar', C_BLUE())} / {QIAVisuals.c('[C]ancelar', C_RED())}? ").lower()
+        
+        if choice == 'e': 
+            subprocess.run(clean_cmd, shell=True); return
+            
+        elif choice == 'r': 
+            refinement = input(QIAVisuals.c("Ajuste pedido: ", C_YELLOW()))
+            new_prompt = f"Comando anterior: {clean_cmd}\nAjuste pedido: {refinement}\nGenera solo el nuevo comando bash plano."
+            answer, elapsed = query_llm(new_prompt, mode="qdo")
+            blocks = re.findall(r"```(?:bash|sh)?\n?(.*?)```", answer, re.DOTALL)
+            clean_cmd = blocks[0].strip() if blocks else answer.strip()
+            clean_cmd = clean_cmd.replace("`", "").strip()
+            continue
+            
         elif choice == 'x':
             print(f"\n{QIAVisuals.c('Explicación:', C_BLUE())}")
-            # We call with mode="q" explicitly to avoid the "Comando Propuesto" label
-            query_llm(f"Explica esto: {clean_cmd}", mode="q")
+            query_llm(f"Explica brevemente este comando: {clean_cmd}", mode="q")
             continue
+            
         else: return
 
 def handle_qcode(prompt):
@@ -525,6 +540,19 @@ def cmd_qia_color(args):
     QIAConfig.set_color_palette(args[0])
     print(QIAVisuals.c(f"\n✔ Paleta de colores cambiada a: {args[0]}", C_LIME()))
 
+def cmd_qia_update():
+    print(QIAVisuals.c("\n✔ Buscando actualizaciones en GitHub...", C_LIME()))
+    try:
+        # Asumiendo que el directorio es un repositorio git
+        subprocess.run(["git", "pull"], check=True, cwd=str(Path(__file__).resolve().parent))
+        print(QIAVisuals.c("✔ Código actualizado.", C_LIME()))
+        subprocess.run(["make", "install"], check=True, cwd=str(Path(__file__).resolve().parent))
+        print(QIAVisuals.c("✔ Instalación finalizada. Reinicia QIA.", C_LIME()))
+    except subprocess.CalledProcessError as e:
+        print(QIAVisuals.c(f"Error al actualizar: {e}", C_RED()))
+
+# ... (rest of code)
+
 # --- MAIN ---
 def main():
     QIAConfig.ensure()
@@ -537,10 +565,11 @@ def main():
         elif sub == "doctor": cmd_qia_doctor()
         elif sub == "status": cmd_qia_status()
         elif sub == "color": cmd_qia_color(args[1:])
+        elif sub == "model": cmd_qia_model(args[1:])
+        elif sub == "profile": cmd_qia_profile(args[1:])
+        elif sub == "update": cmd_qia_update()
         elif sub == "stop": QIABackend.stop()
         elif sub == "help": cmd_qia_help()
-    elif invoked == "qmodel": cmd_qia_model(args)
-    elif invoked == "qprofile": cmd_qia_profile(args)
     elif not args: cmd_qia_help()
     elif invoked == "qdo": handle_qdo(" ".join(args))
     elif invoked == "qcode": handle_qcode(" ".join(args))
