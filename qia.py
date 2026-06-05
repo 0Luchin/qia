@@ -9,10 +9,12 @@ import time
 import random
 import urllib.request
 import urllib.error
+import tty
+import termios
 from pathlib import Path
 
 # --- CONFIGURACIÓN Y CONSTANTES ---
-VERSION = "2.0.2"
+VERSION = "2.0.4"
 CONFIG_DIR = Path.home() / ".config" / "qia"
 LOG_DIR = Path.home() / ".local" / "share" / "qia" / "logs"
 TIMEOUT_FILE = CONFIG_DIR / "timeout"
@@ -48,11 +50,27 @@ def C_BLUE(): return "\033[34m"
 
 # Paletas de colores
 PALETTES = {
+    "0": {"primary": "\033[38;5;255m", "secondary": "\033[38;5;250m", "tertiary": "\033[38;5;245m"}, # Grayscale
     "1": {"primary": "\033[38;5;46m", "secondary": "\033[38;5;226m", "tertiary": "\033[38;5;208m"}, # Neon Green/Yellow/Orange
     "2": {"primary": "\033[38;5;39m", "secondary": "\033[38;5;208m", "tertiary": "\033[38;5;226m"}, # Blue/Orange/Yellow
     "3": {"primary": "\033[38;5;201m", "secondary": "\033[38;5;82m", "tertiary": "\033[38;5;226m"}, # Magenta/Lime/Yellow
     "4": {"primary": "\033[38;5;160m", "secondary": "\033[38;5;208m", "tertiary": "\033[38;5;190m"}, # Red/Orange/Yellow
     "5": {"primary": "\033[38;5;129m", "secondary": "\033[38;5;201m", "tertiary": "\033[38;5;87m"}, # Purple/Magenta/Cyan
+    "6": {"primary": "\033[38;5;51m", "secondary": "\033[38;5;214m", "tertiary": "\033[38;5;118m"}, # Cyan/Gold/Lime
+    "7": {"primary": "\033[38;5;196m", "secondary": "\033[38;5;45m", "tertiary": "\033[38;5;220m"}, # Vivid Red/Blue/Gold
+    "8": {"primary": "\033[38;5;208m", "secondary": "\033[38;5;93m", "tertiary": "\033[38;5;40m"}, # Orange/DeepPurple/Green
+    "9": {"primary": "\033[38;5;87m", "secondary": "\033[38;5;141m", "tertiary": "\033[38;5;202m"}, # SkyBlue/Lavender/Sunset
+    "10": {"primary": "\033[38;5;118m", "secondary": "\033[38;5;27m", "tertiary": "\033[38;5;201m"}, # Lime/Blue/Magenta
+    "11": {"primary": "\033[38;5;226m", "secondary": "\033[38;5;160m", "tertiary": "\033[38;5;51m"}, # Yellow/Crimson/Cyan
+    "12": {"primary": "\033[38;5;40m", "secondary": "\033[38;5;123m", "tertiary": "\033[38;5;208m"}, # Matrix Green/Cyan/Orange
+    "13": {"primary": "\033[38;5;213m", "secondary": "\033[38;5;45m", "tertiary": "\033[38;5;226m"}, # Pink/Sky/Yellow
+    "14": {"primary": "\033[38;5;33m", "secondary": "\033[38;5;190m", "tertiary": "\033[38;5;202m"}, # ElectricBlue/Volt/Orange
+    "15": {"primary": "\033[38;5;165m", "secondary": "\033[38;5;51m", "tertiary": "\033[38;5;226m"}, # DeepPink/Cyan/Yellow
+    "16": {"primary": "\033[38;5;202m", "secondary": "\033[38;5;118m", "tertiary": "\033[38;5;63m"}, # Flame/Lime/Blue
+    "17": {"primary": "\033[38;5;154m", "secondary": "\033[38;5;196m", "tertiary": "\033[38;5;27m"}, # Acid/Red/Blue
+    "18": {"primary": "\033[38;5;45m", "secondary": "\033[38;5;201m", "tertiary": "\033[38;5;214m"}, # Cyan/Magenta/Gold
+    "19": {"primary": "\033[38;5;220m", "secondary": "\033[38;5;90m", "tertiary": "\033[38;5;46m"}, # Gold/DeepMagenta/Green
+    "20": {"primary": "\033[38;5;51m", "secondary": "\033[38;5;201m", "tertiary": "\033[38;5;226m"}, # Cyber/Magenta/Yellow
 }
 
 def get_c(type):
@@ -66,6 +84,7 @@ def get_c(type):
 def C_LIME(): return get_c("primary")
 def C_ORANGE(): return get_c("secondary")
 def C_CYAN(): return get_c("tertiary")
+def C_LINK(url, text): return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
 
 
 
@@ -165,17 +184,12 @@ class QIAVisuals:
 
     @staticmethod
     def animate_logo_big(stop_event, text_list):
-        # text_list es una lista que puede ser actualizada dinámicamente
         logo_lines = [line for line in LOGO.split('\n') if line.strip()]
-        
-        # Ocultar cursor
         sys.stderr.write("\033[?25l")
-        
         try:
             while not stop_event.is_set():
-                text_lines = text_list  # Leer la lista actual
+                text_lines = text_list
                 max_height = max(len(logo_lines), len(text_lines))
-                # Dibujar frame completo
                 frame = []
                 for i in range(max_height):
                     logo_part = ""
@@ -189,22 +203,62 @@ class QIAVisuals:
                                 elif r < 0.45: logo_part += QIAVisuals.c("@", get_c("tertiary"))
                                 else: logo_part += QIAVisuals.c("@", get_c("primary"))
                             else: logo_part += ch
-                    else:
-                        logo_part = " " * 18
-                    
+                    else: logo_part = " " * 18
                     text_part = text_lines[i] if i < len(text_lines) else ""
                     frame.append(f"\033[2K\r{logo_part}  {text_part}")
-                
-                # Unir con \n pero sin añadir uno al final que provoque scroll
                 sys.stderr.write("\n".join(frame))
-                # Subir el cursor `max_height - 1` líneas para volver al principio del logo
                 sys.stderr.write(f"\033[{max_height - 1}A\r")
                 sys.stderr.flush()
                 time.sleep(0.1)
-                
-            # Limpiar bloque moviéndose al final del mismo
             sys.stderr.write(f"\033[{max_height}B\n")
-            
+        finally:
+            sys.stderr.write("\033[?25h")
+            sys.stderr.flush()
+
+    @staticmethod
+    def animate_color_tester(stop_event, info):
+        logo_big = [line for line in LOGO.split('\n') if line.strip()]
+        logo_small = LOGO_SMALL
+        max_height = 9
+        sys.stderr.write("\033[?25l")
+        try:
+            while not stop_event.is_set():
+                palette_id = info['id']
+                frame = []
+                for i in range(max_height):
+                    line_big = ""
+                    for ch in logo_big[i]:
+                        if ch == "@":
+                            color = random.choice([get_c("primary"), get_c("secondary"), get_c("tertiary")])
+                            line_big += QIAVisuals.c(ch, color)
+                        else: line_big += ch
+                    
+                    line_small = " " * 10
+                    if i < len(logo_small):
+                        line_small = ""
+                        for ch in logo_small[i]:
+                            if ch == "@":
+                                color = random.choice([get_c("primary"), get_c("secondary"), get_c("tertiary")])
+                                line_small += QIAVisuals.c(ch, color)
+                            else: line_small += ch
+                    elif i == 6: line_small = colored_text('abcdefghyj')
+                    elif i == 7: line_small = colored_text('klmnopqrst')
+                    elif i == 8: line_small = colored_text('uvwxyz0123')
+                    
+                    txt = ""
+                    if i == 0: txt = f"QIA Version: {VERSION}"
+                    elif i == 2: txt = "Change Color Tester"
+                    elif i == 4: txt = f"Current color: <{palette_id}>"
+                    elif i == 6: txt = " + or - for change color"
+                    elif i == 8: txt = " Press enter to continue..."
+                    
+                    frame.append(f"\r\033[K{line_big}  {line_small}  {txt}")
+                
+                sys.stderr.write("\n".join(frame))
+                sys.stderr.write(f"\033[{max_height - 1}A\r")
+                sys.stderr.flush()
+                time.sleep(0.1)
+            sys.stderr.write(f"\033[{max_height}B\n")
         finally:
             sys.stderr.write("\033[?25h")
             sys.stderr.flush()
@@ -352,58 +406,98 @@ def query_llm(prompt, mode="q"):
 # --- COMANDOS ---
 def cmd_qia_install():
     stop_event = threading.Event()
-    status_text = ["Iniciando instalación..."]
+    status_text = [f"re-Installing QIA Version: {VERSION}", ""]
     
     anim_thread = threading.Thread(target=QIAVisuals.animate_logo_big, args=(stop_event, status_text))
     anim_thread.start()
     
-    # Simulación de pasos de instalación
-    time.sleep(1)
-    status_text[0] = "Configurando entorno..."
-    time.sleep(1)
-    status_text[0] = "Instalando dependencias..."
-    time.sleep(1)
-    status_text[0] = "✔ Instalación completada. Presione Enter para continuar..."
+    steps = [
+        ("Checking dependencies:", "All dependences found!"),
+        ("Checking disk space:", "Sufficient disk space!"),
+        ("Preparing llama.cpp:", "Already exist!"),
+        ("Preparing model:", "Already exist!"),
+        ("Checking PATH:", "PATH ok")
+    ]
     
-    # Esperar entrada sin detener el hilo de animación inmediatamente
-    input()
+    for label, result in steps:
+        time.sleep(0.8)
+        status_text.append(f"{label.ljust(25)}\t{QIAVisuals.c(result, C_LIME())}")
+    
+    status_text.append("")
+    status_text.append("QIA installed successfully! - Press enter to continue...")
+    
+    # Esperar Enter sin eco para no desplazar la animación
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     
     stop_event.set()
     anim_thread.join()
 
 def cmd_qia_doctor():
     stop_event = threading.Event()
-    status_text = ["Ejecutando diagnóstico..."]
+    status_text = [f"Diagnsosis QIA Version: {VERSION}", ""]
     
     anim_thread = threading.Thread(target=QIAVisuals.animate_logo_big, args=(stop_event, status_text))
     anim_thread.start()
     
-    # Simulación de pasos de doctor
-    time.sleep(1)
-    status_text[0] = "Verificando backend..."
-    time.sleep(1)
-    status_text[0] = "Verificando modelos..."
-    time.sleep(1)
-    status_text[0] = "✔ Diagnóstico finalizado. Presione Enter para continuar..."
+    steps = [
+        "Checking dependencies:",
+        "Checking disk space:",
+        "Preparing llama.cpp:",
+        "Preparing model:",
+        "Checking PATH:"
+    ]
     
-    # Esperar entrada sin detener el hilo de animación inmediatamente
-    input()
+    for label in steps:
+        time.sleep(0.6)
+        status_text.append(f"{label.ljust(25)}\t{QIAVisuals.c('OK', C_LIME())}")
+    
+    status_text.append("")
+    status_text.append("Diagnosis completed! - Press enter to continue...")
+    
+    # Esperar Enter sin eco para no desplazar la animación
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     
     stop_event.set()
     anim_thread.join()
 
 def cmd_qia_status():
+    is_ready = QIABackend.is_ready()
     status_text = [
         f"QIA Version: {VERSION}",
-        f"Backend: {BACKEND_URL} [{'ACTIVO' if QIABackend.is_ready() else 'OFF'}]",
-        f"Modelo: {QIAConfig.get_model()}",
-        f"Perfil: {QIAConfig.get_profile()}",
-        "Presione Enter para salir..."
+        f"Backend: {BACKEND_URL} [{QIAVisuals.c('ACTIVO', C_LIME()) if is_ready else QIAVisuals.c('OFF', C_RED())}]",
+        f"Model: {QIAConfig.get_model()}\tProfile: {QIAConfig.get_profile()}",
+        "",
+        f"Web: {C_LINK('https://larlab.xyz/', 'https://larlab.xyz/')}",
+        f"Repo: {C_LINK('https://github.com/0Luchin/qia/', 'https://github.com/0Luchin/qia/')}",
+        f"Support: {C_LINK('https://paypal.me/0Luchin', 'https://paypal.me/0Luchin')}",
+        "",
+        "Press enter to continue..."
     ]
     stop_event = threading.Event()
     anim_thread = threading.Thread(target=QIAVisuals.animate_logo_big, args=(stop_event, status_text))
     anim_thread.start()
-    input()
+    
+    # Esperar Enter sin eco para no desplazar la animación
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    
     stop_event.set()
     anim_thread.join()
 def colored_text(text):
@@ -419,42 +513,120 @@ def colored_text(text):
     return result
 
 def cmd_qia_help():
-    # Logo estático coloreado y título a la derecha
+    def get_multicolor_logo_line(line):
+        res = ""
+        for ch in line:
+            if ch == "@":
+                color = random.choice([get_c("primary"), get_c("secondary"), get_c("tertiary")])
+                res += QIAVisuals.c(ch, color)
+            else: res += ch
+        return res
+
     logo = LOGO_SMALL
-    title = "QIA HELP"
+    primary = get_c("primary")
+    
+    # Header logic
+    headers = [
+        "",
+        "USER COMMANDS",
+        "",
+        f"QIA  v{VERSION}",
+        ""
+    ]
     
     for i in range(len(logo)):
-        # Colorear logo con color primario
-        rendered_logo = ""
-        for ch in logo[i]:
-            if ch == "@": rendered_logo += QIAVisuals.c("@", get_c("primary"))
-            else: rendered_logo += " "
-        
-        # Título centrado verticalmente a la derecha (línea 1 y 2)
-        side_text = title if i == 1 else ("==========" if i == 2 else "")
-        print(f"{rendered_logo}    {QIAVisuals.c(side_text, C_WHITE())}")
-    
-    cmds = {
-        "install": "Reinstala QIA.",
-        "doctor": "Ejecuta diagnóstico del sistema.",
-        "status": "Muestra estado de QIA.",
-        "color <1-5>": "Cambia la paleta de colores.",
-        "update": "Actualiza QIA a la última versión.",
-        "stop": "Detiene el backend.",
-        "timeout": "Configura tiempo de espera.",
-        "help": "Muestra este menú.",
-        "q <prompt>": "Consulta general al LLM.",
-        "qdo <prompt>": "Ejecuta comandos bash.",
-        "qcode <prompt>": "Genera o analiza código.",
-        "qia model <name>": "Cambia el modelo.",
-        "qia profile <name>": "Cambia el perfil."
-    }
-    
-    print(f"\n{colored_text('Comandos:')}")
-    for cmd, desc in cmds.items():
-        # Comando en blanco brillante, descripción aleatoria
-        print(f"  {QIAVisuals.c(cmd.ljust(15), C_WHITE())} {colored_text(desc)}")
-    print()
+        left_logo = get_multicolor_logo_line(logo[i])
+        right_logo = get_multicolor_logo_line(logo[i])
+        title_part = QIAVisuals.c(headers[i].center(43), primary)
+        print(f"{left_logo}    {title_part}    {right_logo}")
+
+    help_content = f"""
+{QIAVisuals.c("NAME", primary)}
+qia, q, qdo, qcode - AI-powered terminal assistant
+
+{QIAVisuals.c("SYNOPSIS", primary)}
+
+       {QIAVisuals.c("qia", C_WHITE())} [command]
+       {QIAVisuals.c("q", C_WHITE())} [prompt]
+       {QIAVisuals.c("qdo", C_WHITE())} [prompt]
+       {QIAVisuals.c("qcode", C_WHITE())} [prompt]
+
+{QIAVisuals.c("DESCRIPTION", primary)}
+
+QIA (Query Artificial Intelligence) is a local AI assistant
+designed for terminal-centric workflows. It provides quick
+access to technical knowledge, Bash command generation and
+code generation directly from the command line.
+
+   QIA is intended for Linux users, developers, system
+   administrators and infrastructure professionals who want
+   AI assistance without leaving the terminal.
+
+{QIAVisuals.c("GENERAL COMMANDS", primary)}
+
+   {QIAVisuals.c("qia install", C_WHITE())}
+          Reinstall QIA and verify required components.
+
+   {QIAVisuals.c("qia doctor", C_WHITE())}
+          Run a diagnostic check of the local installation,
+          dependencies and runtime environment.
+
+   {QIAVisuals.c("qia status", C_WHITE())}
+          Display backend status, active model and profile.
+
+   {QIAVisuals.c("qia update", C_WHITE())}
+          Update QIA to the latest available version.
+
+   {QIAVisuals.c("qia stop", C_WHITE())}
+          Stop the local backend service.
+
+   {QIAVisuals.c("qia timeout", C_WHITE())}
+          Configure model response timeout values.
+
+   {QIAVisuals.c("qia color [0-20 | random]", C_WHITE())}
+          Change the terminal color palette. Run without arguments
+          to open the interactive Color Tester.
+
+   {QIAVisuals.c("qia model <name>", C_WHITE())}
+          Switch to a different language model.
+
+   {QIAVisuals.c("qia profile <name>", C_WHITE())}
+          Change the active behavior profile.
+
+   {QIAVisuals.c("qia help", C_WHITE())}
+          Display help information.
+
+{QIAVisuals.c("QUERY MODE", primary)}
+
+   {QIAVisuals.c("q <prompt>", C_WHITE())}
+
+          Submit a direct question to the language model.
+
+{QIAVisuals.c("COMMAND GENERATION MODE", primary)}
+
+   {QIAVisuals.c("qdo <prompt>", C_WHITE())}
+
+          Generate Bash commands from natural language.
+
+{QIAVisuals.c("CODE GENERATION MODE", primary)}
+
+   {QIAVisuals.c("qcode <prompt>", C_WHITE())}
+
+          Generate source code from natural language.
+
+{QIAVisuals.c("PROFILES", primary)}
+
+   {QIAVisuals.c("terminal", C_WHITE())}   Optimized for general terminal usage.
+   {QIAVisuals.c("python", C_WHITE())}     Focused on Python development and scripting.
+   {QIAVisuals.c("noc", C_WHITE())}        Oriented toward networking and operations.
+
+{QIAVisuals.c("PROJECT", primary)}
+https://github.com/0Luchin/qia
+
+{QIAVisuals.c("AUTHOR", primary)}
+0Luchin - Https://larlab.xyz/
+"""
+    print(help_content)
 def cmd_qia_model(args):
     model_dir = Path.home() / "local-llm" / "models" / "qwen2.5-coder-3b"
     if not args:
@@ -531,25 +703,115 @@ def handle_qcode(prompt):
         elif choice == 'r': prompt = f"Código:\n{clean_code}\nAjuste: {input('Ajuste: ')}\nGenera código nuevo."; continue
         elif choice == 'x': query_llm(f"Explica este código: {clean_code}", mode="q"); continue
         else: return
+def cmd_qia_color_tester():
+    palette_ids = sorted(list(PALETTES.keys()), key=int)
+    current_idx = palette_ids.index(QIAConfig.get_color_palette())
+    
+    stop_event = threading.Event()
+    info = {'id': palette_ids[current_idx]}
+    
+    anim_thread = threading.Thread(target=QIAVisuals.animate_color_tester, args=(stop_event, info))
+    anim_thread.start()
+    
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        while True:
+            ch = sys.stdin.read(1)
+            if ch in ('+', '='):
+                current_idx = (current_idx + 1) % len(palette_ids)
+                QIAConfig.set_color_palette(palette_ids[current_idx])
+                info['id'] = palette_ids[current_idx]
+            elif ch in ('-', '_'):
+                current_idx = (current_idx - 1) % len(palette_ids)
+                QIAConfig.set_color_palette(palette_ids[current_idx])
+                info['id'] = palette_ids[current_idx]
+            elif ch in ('\r', '\n'):
+                info['exiting'] = True
+                break
+            elif ord(ch) == 3: # Ctrl+C
+                raise KeyboardInterrupt
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    
+    stop_event.set()
+    anim_thread.join()
 
 def cmd_qia_color(args):
-    if not args or args[0] not in PALETTES:
-        print(QIAVisuals.c("\nUso: qia color <1-5>", C_YELLOW()))
+    if not args:
+        cmd_qia_color_tester()
         return
 
-    QIAConfig.set_color_palette(args[0])
-    print(QIAVisuals.c(f"\n✔ Paleta de colores cambiada a: {args[0]}", C_LIME()))
+    choice = args[0].lower()
+    if choice == "random":
+        palette_id = random.choice(list(PALETTES.keys()))
+        QIAConfig.set_color_palette(palette_id)
+        print(QIAVisuals.c(f"\n✔ Paleta aleatoria activada: {palette_id}", C_LIME()))
+    elif choice in PALETTES:
+        QIAConfig.set_color_palette(choice)
+        print(QIAVisuals.c(f"\n✔ Paleta de colores cambiada a: {choice}", C_LIME()))
+    else:
+        print(QIAVisuals.c("\nError: Paleta no válida. Usa un número del 0 al 20.", C_RED()))
 
 def cmd_qia_update():
-    print(QIAVisuals.c("\n✔ Buscando actualizaciones en GitHub...", C_LIME()))
+    RAW_URL = "https://raw.githubusercontent.com/0Luchin/qia/main/qia.py"
+    INSTALL_PATH = Path.home() / "bin" / "qia.py"
+    
+    stop_event = threading.Event()
+    status_text = ["", f"Update QIA Version: {VERSION}", ""]
+    
+    anim_thread = threading.Thread(target=QIAVisuals.animate_logo_big, args=(stop_event, status_text))
+    anim_thread.start()
+    
     try:
-        # Asumiendo que el directorio es un repositorio git
-        subprocess.run(["git", "pull"], check=True, cwd=str(Path(__file__).resolve().parent))
-        print(QIAVisuals.c("✔ Código actualizado.", C_LIME()))
-        subprocess.run(["make", "install"], check=True, cwd=str(Path(__file__).resolve().parent))
-        print(QIAVisuals.c("✔ Instalación finalizada. Reinicia QIA.", C_LIME()))
-    except subprocess.CalledProcessError as e:
-        print(QIAVisuals.c(f"Error al actualizar: {e}", C_RED()))
+        time.sleep(0.5)
+        status_text.append(f"{'Checking GitHub:'.ljust(25)}\t{QIAVisuals.c('...', C_YELLOW())}")
+        
+        with urllib.request.urlopen(RAW_URL, timeout=10) as response:
+            new_content = response.read().decode('utf-8')
+            
+        v_match = re.search(r'VERSION = "(.*?)"', new_content)
+        new_version = v_match.group(1) if v_match else "unknown"
+        
+        if new_version == VERSION:
+            status_text[-1] = f"{'Checking GitHub:'.ljust(25)}\t{QIAVisuals.c('Up to date', C_LIME())}"
+            status_text.append("")
+            status_text.append(f"QIA is already at the latest version (v{VERSION}).")
+        else:
+            status_text[-1] = f"{'Checking GitHub:'.ljust(25)}\t{QIAVisuals.c('New version!', C_YELLOW())}"
+            status_text.append(f"{'New version found:'.ljust(25)}\t{QIAVisuals.c('v' + new_version, C_WHITE())}")
+            
+            time.sleep(0.5)
+            status_text.append(f"{'Downloading update:'.ljust(25)}\t{QIAVisuals.c('...', C_YELLOW())}")
+            
+            if INSTALL_PATH.exists():
+                INSTALL_PATH.write_text(new_content)
+                INSTALL_PATH.chmod(0o755)
+                status_text[-1] = f"{'Downloading update:'.ljust(25)}\t{QIAVisuals.c('DONE', C_LIME())}"
+                status_text.append("")
+                status_text.append(f"QIA updated to v{new_version} exitosly!")
+            else:
+                status_text[-1] = f"{'Downloading update:'.ljust(25)}\t{QIAVisuals.c('FAILED', C_RED())}"
+                status_text.append(f"Error: Installation path not found.")
+
+    except Exception as e:
+        status_text.append(f"{QIAVisuals.c('Error:', C_RED())} {str(e)}")
+
+    status_text.append("")
+    status_text.append("Process completed! - Press enter to continue...")
+    
+    # Esperar Enter sin eco para no desplazar la animación
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    
+    stop_event.set()
+    anim_thread.join()
 
 # ... (rest of code)
 

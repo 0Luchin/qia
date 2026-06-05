@@ -14,7 +14,7 @@ QIA turns your terminal into an expert assistant:
 *   **`qia install`**: Reinstall/Update QIA.
 *   **`qia doctor`**: Run system diagnostics.
 *   **`qia status`**: Show QIA status.
-*   **`qia color <1-5>`**: Change color palette.
+*   **`qia color [0-20]`**: Change color palette.
 *   **`qia model <name>`**: Change model.
 *   **`qia profile <name>`**: Change profile.
 *   **`qia update`**: Update to latest version.
