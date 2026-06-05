@@ -1,57 +1,68 @@
-# QIA v2 - Quantum Infrastructure Assistant (Deep Dive)
+# QIA Technical Deep Dive 🛠️
 
-QIA es un asistente de terminal modular diseñado para interactuar con modelos de lenguaje locales (LLMs) a través de un backend compatible con la API de OpenAI (por defecto `llama-server` en el puerto 8080).
-
-## Arquitectura del Código (`qia.py`)
-
-El script único `qia.py` actúa como orquestador y cliente, cambiando su comportamiento según cómo sea invocado (subcomandos).
-
-### 1. Gestión de Configuración (`QIAConfig`)
-- Centraliza la persistencia en `~/.config/qia/`.
-- Maneja el modelo actual, el perfil del asistente, las preferencias de color y la **paleta de colores seleccionada**.
-- Asegura que los directorios y archivos necesarios existan al iniciar.
-
-### 2. Capa Visual (`QIAVisuals`)
-- Proporciona colores ANSI dinámicos (basados en la paleta activa) y animaciones de carga.
-- `animate_logo_big`: Animación principal con destello tri-color y mensajes de progreso.
-- `animate_logo`: Animación pequeña (usada en `help`).
-- `colored_text`: Generador de texto con colores aleatorios basados en la paleta actual.
-
-### 3. Sistema de Paletas de Colores
-- Definidas en el diccionario `PALETTES` (5 esquemas).
-- `get_c(tipo)`: Función dinámica que recupera el color correcto según la paleta configurada en `COLOR_FILE`.
-- Colores accesibles como funciones (`C_LIME()`, `C_ORANGE()`, `C_CYAN()`) para evitar dependencias circulares.
-
-### 4. Backend Manager (`QIABackend`)
-- Gestiona la ejecución de `llama-server`.
-- **Puerto:** Por defecto `18080`.
-- **Compilación:** `make install` compila `llama.cpp`.
-
-### 5. Lógica de Comandos y Modos
-- **Subcomandos (`qia <subcommand>`):**
-    - `install`, `doctor`, `status`, `color`, `model`, `profile`, `update`, `stop`, `help`.
-- **Modos de Invocación:**
-    - `q`: Chat técnico directo.
-    - `qdo`: Sintetizador de comandos Bash.
-    - `qcode`: Generador de código puro.
+QIA is a modular terminal orchestrator designed for low-latency interaction with local Large Language Models (LLMs). It leverages `llama.cpp` as its inference engine and implements a custom client-server architecture to manage background processes and user interaction.
 
 ---
 
-## Guía para IAs (Contexto de Sistema)
+## 🏗️ System Architecture
 
-Si eres una IA trabajando en este código:
-- **Estructura:** El código es monolítico.
-- **Colores:** NO uses constantes estáticas. Usa `C_LIME()`, `C_ORANGE()`, `C_CYAN()` (que llaman a `get_c()`).
-- **Comandos:** Toda lógica nueva debe ser un subcomando de `qia` y registrarse en `main()`.
-- **Seguridad:** `qdo` ejecuta comandos directamente; mantén la rigidez del `system_prompt`.
+### 1. The Monolithic Orchestrator (`qia.py`)
+Despite being a single file, the architecture is strictly decoupled into functional classes:
+- **`QIAConfig`**: Manages persistence in `~/.config/qia/`. Handles configuration for models, profiles, timeouts, and UI preferences.
+- **`QIAVisuals`**: A dedicated UI layer. It uses ANSI escape sequences for cursor manipulation and dynamic color rendering based on active palettes.
+- **`QIABackend`**: Controls the lifecycle of the inference server. It includes logic for automatic startup, health checks (OpenAI-compatible `/v1/models` endpoint), and process termination.
 
-## Uso Rápido
+### 2. Activity & Lifecycle Management (`qia_watcher`)
+QIA implements an automatic power-saving mechanism. When the backend starts, it spawns a detached background process (`qia_watcher`) that:
+- Monitors `~/.config/qia/last_activity`.
+- Compares the last activity timestamp with the user-defined `timeout`.
+- Terminstes `llama-server` if the system is idle to free up CPU/GPU resources.
 
-- `qia help`: Menú de comandos actualizado.
-- `qia color <1-5>`: Cambiar paleta.
-- `qia update`: Actualiza QIA y reinstala.
-- `q "pregunta"`: Chat rápido.
-- `qdo "acción"`: Genera comando.
-- `qcode "tarea"`: Genera código.
-- `qia status`: Ver estado del backend.
+---
 
+## 🎨 Visual Engine & UI Logic
+
+### Dynamic Palettes
+QIA uses a "Tertiary Color System" (Primary, Secondary, Tertiary). The `PALETTES` dictionary contains 21 distinct schemes (0-20). 
+- **Palette 0**: High-contrast grayscale for minimalist environments.
+- **Palettes 1-20**: Various high-visibility schemes (Neon, Cyber, Matrix, Flame, etc.).
+
+### Interactive Terminal Control
+The `animate_color_tester` and `cmd_qia_status` functions use raw terminal modes via `tty` and `termios`. This allows:
+- **Zero-latency input:** Capturing keys like `+`, `-`, or `Enter` without requiring the user to press Return.
+- **Non-destructive UI:** Redrawing specific blocks of the terminal screen while keeping the background stable.
+
+---
+
+## 🧠 Inference & Prompt Engineering
+
+### Multi-Alias Dispatch
+QIA behaves differently based on how it is invoked (`sys.argv[0]`):
+- **`q` (Query)**: Balanced temperature (~0.6). Direct technical responses.
+- **`qdo` (Do)**: Low temperature (~0.01). Strict system prompt to ensure executable output without Markdown.
+- **`qcode` (Code)**: Moderate temperature (~0.2). Focused on source code generation with direct-to-file saving capabilities.
+
+### OpenAI Compatibility
+The system is built to be backend-agnostic as long as the server follows the OpenAI Chat Completions API. It currently streams tokens in real-time for a "typing" effect.
+
+---
+
+## 🛠️ Internal Data Flow
+
+1. **Invocation**: The user runs a command (e.g., `qdo "list files"`).
+2. **Environment Check**: `QIABackend.ensure()` checks if the server is alive. If not, it boots `llama-server` with the configured model.
+3. **Prompt Assembly**: `get_system_prompt(mode)` fetches the active profile (Terminal, NOC, or Python) and wraps the user input.
+4. **Streaming Inference**: Tokens are requested via `urllib.request`. `qia.py` filters out potential Markdown artifacts (like code blocks) for `qdo` and `qcode` modes.
+5. **Action Loop**: For `qdo`/`qcode`, the user enters an interactive loop to Execute, Refine, or Explain the result.
+
+---
+
+## 📂 File System Map
+
+- `~/.config/qia/`: Configuration files (model, port, timeout, palette).
+- `~/.local/share/qia/logs/`: Backend logs (`llama-server.log`).
+- `~/local-llm/models/`: Storage for GGUF model files.
+- `~/bin/qia.py`: The executable installation path.
+
+---
+*Technical documentation updated for v2.0.4 - 2026*
