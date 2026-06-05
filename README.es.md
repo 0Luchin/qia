@@ -1,56 +1,86 @@
 # QIA - Query Artificial Intelligence 🚀
 
-**QIA** (Query Artificial Intelligence) es un asistente técnico diseñado para la automatización, gestión de infraestructura y generación de código, ejecutado localmente para garantizar **privacidad total** y **velocidad**.
+**QIA** es un asistente de IA local de alto rendimiento diseñado para la terminal. Proporciona soporte técnico instantáneo, genera comandos Bash ejecutables y escribe código fuente—todo ejecutándose 100% localmente en tu máquina mediante `llama.cpp`.
 
 ---
 
-## 🛠️ ¿Qué hace QIA?
+## ✨ Características Principales
 
-QIA convierte tu terminal en un asistente experto:
-
-*   **`q`**: Consultas técnicas rápidas.
-*   **`qdo`**: Sintetizador de comandos Bash.
-*   **`qcode`**: Generador de código fuente.
-*   **`qia install`**: Reinstalar/Actualizar QIA.
-*   **`qia doctor`**: Ejecutar diagnóstico del sistema.
-*   **`qia status`**: Mostrar estado de QIA.
-*   **`qia color [0-20]`**: Cambiar paleta de colores.
-*   **`qia model <name>`**: Cambiar modelo.
-*   **`qia profile <name>`**: Cambiar perfil.
-*   **`qia update`**: Actualizar a la última versión.
-*   **`qia stop`**: Detener el backend.
-*   **`qia help`**: Mostrar menú de ayuda.
+- **Privacidad Total:** Tus datos nunca salen de tu máquina. La inferencia es local.
+- **Velocidad Extrema:** Optimizado para modelos pequeños y potentes (como Qwen2.5-Coder) para respuestas casi instantáneas.
+- **Perfiles Especializados:** Comportamientos ajustados para SysAdmins, Desarrolladores e Ingenieros de NOC.
+- **UI Interactiva:** Interfaz de terminal colorida con paletas personalizadas y animaciones.
 
 ---
 
-## 🚀 Instalación
+## 🛠️ Modos de Operación
 
-Para instalar QIA, simplemente ejecuta en la raíz del repositorio:
+QIA está diseñado para ser invocado a través de tres alias principales:
 
-```bash
-make install
-```
-
-*Nota: El instalador verificará dependencias, compilará el motor de inferencia (`llama.cpp`) y descargará el modelo automáticamente si no existen.*
-
-Una vez instalado, usa `qia help` para ver los comandos disponibles.
+*   **`q "tu pregunta"`**: Consultas técnicas generales. Respuestas breves y directas.
+*   **`qdo "descripción de tarea"`**: Genera comandos Bash ejecutables. Incluye opciones para **Ejecutar**, **Refinar** o **Explicar** el comando.
+*   **`qcode "descripción lógica"`**: Genera código fuente puro. Permite guardar la salida directamente en un archivo.
 
 ---
 
-## 🏗️ Organización del Repositorio
+## 👤 Perfiles Especializados
 
-- **`scripts/`**: Scripts auxiliares (instalador, etc.).
-- **`qia.py`**: Código principal y cliente.
-- **`TECHNICAL.md`**: Detalles técnicos profundos.
+| Perfil | Enfoque | Ideal para... |
+| :--- | :--- | :--- |
+| **`terminal`** (Default) | Linux/Bash/Python General | Tareas diarias y resolución rápida de problemas. |
+| **`noc`** | Redes e Infraestructura | Diagnósticos de red, seguridad y gestión de infra. |
+| **`python`** | Desarrollo Senior en Python | Código limpio, algoritmos eficientes y depuración. |
+
+*Cambia de perfil con: `qia profile <nombre>`*
 
 ---
 
-## ☕ Donaciones
+## 🎨 Personalización
 
-Si te ha sido útil esta herramienta y quieres apoyar su desarrollo continuo, ¡cualquier aporte es bienvenido!
+QIA incluye un sistema de colores dinámico para adaptarse a la estética de tu terminal:
+
+- **Modo Interactivo:** Ejecuta `qia color` para abrir el probador visual. Usa `+` y `-` para navegar por 21 paletas (0-20).
+- **Selección Directa:** `qia color 12` o `qia color random`.
+- **Minimalista:** `qia color 0` para un estilo limpio en escala de grises.
+
+---
+
+## ⚙️ Comandos del Sistema
+
+*   **`qia status`**: Verifica el estado del backend, modelo activo y perfil.
+*   **`qia doctor`**: Ejecuta un diagnóstico completo de dependencias y entorno.
+*   **`qia install`**: Reinstala o verifica la configuración local.
+*   **`qia model`**: Lista o cambia entre modelos GGUF descargados.
+*   **`qia stop`**: Detiene el servidor de inferencia local.
+*   **`qia update`**: Descarga la última versión directamente desde el repositorio.
+
+---
+
+## 🚀 Inicio Rápido
+
+1.  **Clonar e Instalar:**
+    ```bash
+    git clone https://github.com/0Luchin/qia.git
+    cd qia
+    make install
+    ```
+2.  **Verificar:**
+    ```bash
+    qia doctor
+    ```
+3.  **Preguntar algo:**
+    ```bash
+    q "Como reviso los puertos abiertos en Linux?"
+    ```
+
+---
+
+## ☕ Apoya el Proyecto
+
+Si QIA te facilita la vida, considera apoyar su desarrollo:
 
 - [PayPal](https://paypal.me/0Luchin)
 - [Ko-fi](https://ko-fi.com/0luchin)
 
 ---
-*Hecho con IA y mucho amor por [0Luchin](https://github.com/0Luchin) para [LARLAB](https://larlab.xyz/) - 2026*
+*Hecho con IA y amor por [0Luchin](https://github.com/0Luchin) para [LARLAB](https://larlab.xyz/) - 2026*

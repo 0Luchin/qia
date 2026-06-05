@@ -1,53 +1,83 @@
 # QIA - Query Artificial Intelligence 🚀
 
-**QIA** (Query Artificial Intelligence) is a technical assistant designed for automation, infrastructure management, and code generation, running locally to ensure **total privacy** and **speed**.
+**QIA** is a high-performance, local AI assistant designed for the terminal. It provides instant technical support, generates executable Bash commands, and writes source code—all running 100% locally on your machine using `llama.cpp`.
 
 ---
 
-## 🛠️ What does QIA do?
+## ✨ Key Features
 
-QIA turns your terminal into an expert assistant:
-
-*   **`q`**: Rapid technical queries.
-*   **`qdo`**: Bash command synthesizer.
-*   **`qcode`**: Source code generator.
-*   **`qia install`**: Reinstall/Update QIA.
-*   **`qia doctor`**: Run system diagnostics.
-*   **`qia status`**: Show QIA status.
-*   **`qia color [0-20]`**: Change color palette.
-*   **`qia model <name>`**: Change model.
-*   **`qia profile <name>`**: Change profile.
-*   **`qia update`**: Update to latest version.
-*   **`qia stop`**: Stop backend.
-*   **`qia help`**: Show this menu.
+- **Total Privacy:** Your data never leaves your machine. Inference is performed locally.
+- **Extreme Speed:** Optimized for small, powerful models (like Qwen2.5-Coder) for near-instant responses.
+- **Context-Aware Profiles:** Specialized behaviors for SysAdmins, Developers, and NOC Engineers.
+- **Interactive UI:** Colorful terminal interface with custom palettes and animated feedback.
 
 ---
 
-## 🚀 Installation
+## 🛠️ Modes of Operation
 
-To install QIA, simply run in the repository root:
+QIA is designed to be invoked through three main aliases:
 
-```bash
-make install
-```
-
-*Note: The installer will check dependencies, compile the inference engine (llama.cpp), and download the model automatically if they don't exist.*
-
-Once installed, use `qia help` to see available commands.
+*   **`q "your question"`**: General technical queries. Brief and direct responses.
+*   **`qdo "task description"`**: Generates executable Bash commands. Includes options to **Execute**, **Refine**, or **Explain** the command.
+*   **`qcode "logic description"`**: Generates pure source code. Allows you to save the output directly to a file.
 
 ---
 
-## 🏗️ Repository Structure
+## 👤 Specialized Profiles
 
-- **`scripts/`**: Auxiliary scripts (installer, etc.).
-- **`qia.py`**: Main code and client.
-- **`TECHNICAL.md`**: Deep technical details.
+| Profile | Focus | Best for... |
+| :--- | :--- | :--- |
+| **`terminal`** (Default) | General Linux/Bash/Python | Daily terminal tasks and quick troubleshooting. |
+| **`noc`** | Networking & Infrastructure | Network diagnostics, security, and infra management. |
+| **`python`** | Senior Python Development | Clean code, efficient algorithms, and debugging. |
+
+*Switch profiles using: `qia profile <name>`*
 
 ---
 
-## ☕ Donations
+## 🎨 Personalization
 
-If you have found this tool useful and want to support its continued development, any contribution is welcome!
+QIA features a dynamic color system to match your terminal aesthetics:
+
+- **Interactive Mode:** Run `qia color` to open the visual tester. Use `+` and `-` to cycle through 21 palettes (0-20).
+- **Direct Selection:** `qia color 12` or `qia color random`.
+- **Minimalist:** `qia color 0` for a clean grayscale look.
+
+---
+
+## ⚙️ System Commands
+
+*   **`qia status`**: Check backend health, active model, and profile.
+*   **`qia doctor`**: Run a full diagnostic of dependencies and environment.
+*   **`qia install`**: Reinstall or verify the local setup.
+*   **`qia model`**: List or switch between downloaded GGUF models.
+*   **`qia stop`**: Terminate the local inference server.
+*   **`qia update`**: Pull the latest version directly from the repository.
+
+---
+
+## 🚀 Quick Start
+
+1.  **Clone and Install:**
+    ```bash
+    git clone https://github.com/0Luchin/qia.git
+    cd qia
+    make install
+    ```
+2.  **Verify:**
+    ```bash
+    qia doctor
+    ```
+3.  **Ask something:**
+    ```bash
+    q "How do I check open ports in Linux?"
+    ```
+
+---
+
+## ☕ Support the Project
+
+If QIA makes your life easier, consider supporting its development:
 
 - [PayPal](https://paypal.me/0Luchin)
 - [Ko-fi](https://ko-fi.com/0luchin)
